@@ -1,0 +1,193 @@
+# MPorT Flutter — MandalaNet Portal
+
+Role-based ISP portal for **MPorT Laravel v2.0.1**.
+
+## Android build matrix (Flutter 3.47 verified)
+
+| Component | Version |
+|-----------|---------|
+| Gradle | **9.3.1** |
+| AGP | **9.1.0** |
+| Kotlin (KGP) | **2.4.0** |
+| Java | **17** |
+
+## API URL
+
+Default: `http://192.168.1.102:8000`
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://192.168.1.102:8000
+flutter build apk --release --dart-define=API_BASE_URL=http://192.168.1.102:8000
+```
+
+## Setup
+
+```bash
+flutter pub get
+flutter run
+```
+
+## GitHub Actions
+
+- **CI** — analyze + test on push/PR
+- **Build APK** — manual / tag `v*`
+- **Release** — APK + AAB + GitHub Release on tag
+
+```bash
+git tag v2.0.2
+git push origin v2.0.2
+```
+
+---
+
+## Changelog
+
+### 2026-09-03 — Actions Node 24 (release)
+
+- `softprops/action-gh-release@v2` → `@v3` (Node.js 24)
+- Semua action JS di workflow sudah Node 24 (checkout@v6, upload-artifact@v6, gh-release@v3)
+
+
+### 2026-09-03 — App icon & logo baru
+
+- Logo login/splash: `assets/images/mport_logo.png` diganti desain monogram M biru neon (circuit).
+- Icon launcher Android (mdpi–xxxhdpi + adaptive foreground/background) diselaraskan.
+
+
+### 2026-09-03 — GitHub Actions Node.js 24
+
+- `actions/checkout@v4` → `@v6` (Node.js 24)
+- `actions/upload-artifact@v4` → `@v6` (Node.js 24)
+- Menghilangkan warning deprecation Node.js 20 di runner Actions.
+
+
+### 2026-09-03 — Sync audit with backend MPorT.v2.0.1-hardened ROUND2
+
+- Deep review API paths vs `routes/api.php` (legacy + v1 + tech/admin extras).
+- Auth login/register/me/forgot-password payload & response shapes verified against V1 AuthController.
+- Dashboard, invoices, packages, tickets, tech materials/map, admin users response keys (`data`, `summary`, `recent_invoices`, etc.) aligned.
+- Safe int parsing (`_asInt`) retained for stock / counts from JSON numbers.
+- Profile avatar initial: null/whitespace-safe (no force-unwrap crash).
+- Cleartext HTTP + Sanctum Bearer still required for LAN `http://192.168.1.102:8000`.
+
+
+### 2026-08-20 — Stability pass
+
+- Widget test: mock `SharedPreferences` agar tidak hang.
+- `Image.asset` logo (login/splash): `errorBuilder` fallback icon.
+- Profile: hindari force-unwrap `phone`.
+- Warna dikembalikan ke tema cyan original; logo transparan + الله + tanpa antena tetap.
+
+### 2026-08-20 — Crescent moon + star on background
+
+- Ditambah **bulan sabit + bintang 5 sudut** di langit (kanan-atas), warna cyan selaras skyline.
+- Glow kuat + fill hampir putih-cyan agar **paling mencolok** di antara partikel & kota.
+- Sedikit drift halus mengikuti phase animasi.
+
+### 2026-08-20 — Animated background: brighter + faster + more transparent
+
+- Base gradient & vignette dibuat **lebih transparan** agar form login tidak tertutup gelap.
+- Bintang (particles) **lebih cerah**, halo lebih kuat, ukuran core sedikit diperbesar.
+- Kecepatan gerak partikel ~**2.5×** lebih cepat; phase animasi dipercepat.
+- Skyline kota (outline, jendela, antenna, street lines) **lebih terang** dan window twinkle lebih hidup.
+- Target frame ~48 fps.
+
+### 2026-08-20 — Bugfix: safe int parsing + splash logo
+
+- Semua `_asInt` di model (`User` / `Dashboard` / `Invoice` / `Package`) sekarang menangani `num` (double dari JSON) selain `int`/`String`.
+- `tech_materials_screen`: ganti cast `as int?` pada `stock` / `low_threshold` → `_asInt` (hindari crash jika backend kirim angka sebagai double).
+- Splash screen memakai `assets/images/mport_logo.png` (konsisten dengan login).
+- Hapus entri `assets/icons/` kosong di `pubspec.yaml`.
+
+### 2026-08-20 — App icon + login logo
+
+- Logo login & **ikon aplikasi** diganti gambar MPorT crown/lightning terbaru.
+- Adaptive icon Android (`mipmap-*/ic_launcher*`).
+
+
+
+### 2026-08-20 — Network errors + dialog dispose
+
+- `ApiClient` menangkap `SocketException` / timeout / SSL dan menampilkan pesan + **URL server**.
+- Dialog ticket: dispose controller setelah frame (hindari crash `_dependents`).
+- Login menampilkan `Server: <API_BASE_URL>` saat error (debug koneksi).
+
+
+
+### 2026-08-20 — Fix missing Gradle wrapper (CI)
+
+- Tambah `android/gradlew`, `android/gradlew.bat`, dan `gradle-wrapper.jar`.
+- Mengatasi error CI: *No such file or directory .../android/gradlew*.
+
+
+
+### 2026-08-20 — Login logo & faster stars
+
+- Logo login diganti `assets/images/mport_logo.png`; teks **MPorT** di login dihapus.
+- Gerakan partikel bintang dipercepat (~3.5×), fase animasi lebih cepat, target ~40 fps.
+
+
+
+### 2026-08-20 — Fix crash lupa password
+
+- Dialog lupa password memakai StatefulWidget sendiri (controller di-dispose di `State.dispose`).
+- Menghindari assertion Flutter `_dependents.isEmpty` saat menutup dialog.
+
+
+
+### 2026-08-20 — Login screen UX
+
+- Hapus subtitle *“Portal pelanggan & teknisi MandalaNet”*.
+- Judul diganti **MPorT** (tanpa kata “Masuk”).
+- Hapus opsi **Lanjut sebagai tamu**.
+- Tambah **Lupa password?** (dialog + `POST /api/auth/forgot-password`).
+- Login menerima **email / nomor HP / ID** (field `login` + `email` ke API).
+
+### 2026-08-20 — Wireframe city skyline
+
+- Procedural **line-art city** at the bottom of the animated background.
+- Building outlines, floor/column grids, spires, antennas, sparse glowing windows.
+- Horizon base line + perspective street lines; window brightness twinkles lightly with time.
+- Deterministic layout (seeded) so the skyline stays stable across frames.
+
+### 2026-08-20 — Particle field & performance
+
+- **Background particles raised to 777** (`AnimatedBackground.particleCount`).
+- Spatial **grid** for network edges (≈O(n), not O(n²)); only ~¼ of particles participate in mesh; **max 220 edges**/frame.
+- Halo drawn only for larger / link particles to cut overdraw.
+- Animation capped at **~30 fps** via throttled `Ticker`.
+- **Pause** animation when app is not resumed (`WidgetsBindingObserver`).
+- Reused `Paint` objects; gradient/vignette shaders cached per size.
+- `RepaintBoundary` + `isComplex` / `willChange` on the background layer.
+
+### 2026-08-20 — Premium background
+
+- Multi-stop dark gradient, drifting cyan/blue/purple orbs, aurora band, twinkle, vignette.
+
+### 2026-08-20 — System back / exit behaviour
+
+- Added `ExitGuard`: on shell tabs, first back returns to **home tab**; on home (or login), **double-back within 2s** exits with snackbar *“Tekan sekali lagi untuk keluar”*.
+- Applied to User / Tech / Admin shells and Login screen.
+- Routes opened with `push` (Register, Guest) still pop normally.
+
+### 2026-08-20 — Bugfixes (stability)
+
+- **GoRouter** created once in `initState` (was recreated on every `AuthService.notifyListeners()`, resetting navigation).
+- `DropdownButtonFormField`: `initialValue` → **`value`** (compile/runtime API fix) in admin users, tickets, tech materials.
+- Safe **int parsing** for material IDs (JSON `num`/`String` no longer crashes).
+- Dispose **TextEditingController**s after dialogs/bottom sheets; dispose **MapController** on tech map.
+- Widget test: mock `SharedPreferences` + binding so tests do not hang.
+- Normalized `if (!mounted) return;` early-exits across feature screens.
+
+---
+
+## Architecture notes
+
+| Area | Path |
+|------|------|
+| Auth / session | `lib/core/auth/auth_service.dart` |
+| HTTP client | `lib/core/api/` |
+| Router + role guards | `lib/core/router/app_router.dart` |
+| Animated background | `lib/core/widgets/animated_background.dart` |
+| Double-back exit | `lib/core/widgets/exit_guard.dart` |
+| Role shells | `lib/features/{user,tech,admin}/**/` |
