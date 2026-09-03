@@ -23,7 +23,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: "3.47.2"
           cache: true
 
       - name: Flutter version
@@ -37,12 +37,15 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
-      - name: Ensure Android embedding v2
+      - name: Verify Android project
         run: |
-          if ! grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml 2>/dev/null; then
-            rm -rf android
-            flutter create . --project-name mport --org id.mandalanet --platforms=android
-          fi
+          set -euo pipefail
+          test -f android/settings.gradle.kts
+          test -f android/app/build.gradle.kts
+          test -f android/app/src/main/AndroidManifest.xml
+          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:value="2"' android/app/src/main/AndroidManifest.xml
+          grep -q 'FlutterActivity' android/app/src/main/kotlin/id/mandalanet/mport/MainActivity.kt
           if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
             sed -i 's/gradle-[0-9.]*-all.zip/gradle-9.3.1-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
           fi
