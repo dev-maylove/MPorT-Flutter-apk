@@ -191,3 +191,7 @@ git push origin v2.0.2
 | Animated background | `lib/core/widgets/animated_background.dart` |
 | Double-back exit | `lib/core/widgets/exit_guard.dart` |
 | Role shells | `lib/features/{user,tech,admin}/**/` |
+
+## Release signing v7
+
+Release CI is fail-closed: missing signing secrets or failed APK signature verification stops the workflow before artifact/release publication. See `RELEASE-SIGNING-V7.md`.

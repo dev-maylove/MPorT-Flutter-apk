@@ -51,45 +51,33 @@ jobs:
 
       - name: Verify Android project
         run: |
+          set -euo pipefail
           test -f android/app/build.gradle.kts
           test -f android/settings.gradle.kts
           test -f android/app/src/main/AndroidManifest.xml
-
-          if ! grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml; then
-            echo "ERROR: Android embedding v2 is missing."
-            echo "Refusing to recreate android/ because that could overwrite signing configuration."
-            exit 1
-          fi
+          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:value="2"' android/app/src/main/AndroidManifest.xml
 
           if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
             sed -i 's/gradle-[0-9.]*-all.zip/gradle-9.3.1-all.zip/' \
               android/gradle/wrapper/gradle-wrapper.properties
           fi
 
-          if ! grep -q 'usesCleartextTraffic' android/app/src/main/AndroidManifest.xml; then
-            sed -i 's/<application/<application android:usesCleartextTraffic="true"/' \
-              android/app/src/main/AndroidManifest.xml || true
-          fi
-
       - name: Resolve API URL
         id: api
         run: |
           URL="${{ github.event.inputs.api_base_url }}"
-          if [ -z "$URL" ]; then
-            URL="https://api.mandalanet.id"
-          fi
+          if [ -z "$URL" ]; then URL="https://api.mandalanet.id"; fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Resolve build mode
         id: mode
         run: |
           MODE="${{ github.event.inputs.build_mode }}"
-          if [ -z "$MODE" ]; then
-            MODE=release
-          fi
+          if [ -z "$MODE" ]; then MODE=release; fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
 
-      - name: Configure release signing (when secrets are available)
+      - name: Configure mandatory release signing
         id: signing
         if: steps.mode.outputs.mode == 'release'
         env:
@@ -100,11 +88,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -n "$MPORT_KEYSTORE_BASE64" ] && [ -n "$MPORT_KEYSTORE_PASSWORD" ] && \
-             [ -n "$MPORT_KEY_ALIAS" ] && [ -n "$MPORT_KEY_PASSWORD" ]; then
-            printf '%s' "$MPORT_KEYSTORE_BASE64" | base64 --decode > android/app/mport-release.p12
+          for name in MPORT_KEYSTORE_BASE64 MPORT_KEYSTORE_PASSWORD MPORT_KEY_ALIAS MPORT_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "ERROR: Required GitHub Secret $name is missing or empty."
+              echo "Refusing to build/upload an unsigned release APK."
+              exit 1
+            fi
+          done
 
-            cat > android/key.properties <<EOF2
+          printf '%s' "$MPORT_KEYSTORE_BASE64" | base64 --decode > android/app/mport-release.p12
+          test -s android/app/mport-release.p12
+
+          cat > android/key.properties <<EOF2
           storePassword=$MPORT_KEYSTORE_PASSWORD
           keyPassword=$MPORT_KEY_PASSWORD
           keyAlias=$MPORT_KEY_ALIAS
@@ -112,60 +107,63 @@ jobs:
           storeType=PKCS12
           EOF2
 
-            chmod 600 android/key.properties android/app/mport-release.p12
-            test -s android/app/mport-release.p12
-            test -s android/key.properties
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-            echo "Release signing configured from GitHub Secrets."
-          else
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "WARNING: release signing secrets are not configured. Building an UNSIGNED release artifact."
-          fi
+          chmod 600 android/key.properties android/app/mport-release.p12
+
+          # Validate that the decoded file is a readable PKCS12 keystore and that
+          # the configured alias exists before Gradle starts.
+          keytool -list -storetype PKCS12 \
+            -keystore android/app/mport-release.p12 \
+            -storepass "$MPORT_KEYSTORE_PASSWORD" \
+            -alias "$MPORT_KEY_ALIAS" >/dev/null
+
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "Release signing material validated successfully."
 
       - name: Verify signing configuration
-        if: steps.mode.outputs.mode == 'release' && steps.signing.outputs.signed == 'true'
-        run: |
-          grep -q 'create("release")' android/app/build.gradle.kts
-          grep -q 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
-          grep -q 'storeType' android/app/build.gradle.kts
-          test -f android/key.properties
-          test -f android/app/mport-release.p12
-
-      - name: Report signing status
         if: steps.mode.outputs.mode == 'release'
         run: |
-          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
-            echo "Release APK will be signed with the configured MPorT keystore."
-          else
-            echo "WARNING: Release APK will be UNSIGNED because signing secrets are unavailable."
-          fi
+          set -euo pipefail
+          test "${{ steps.signing.outputs.signed }}" = "true"
+          grep -q 'create("release")' android/app/build.gradle.kts
+          grep -q 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
+          test -f android/key.properties
+          test -s android/app/mport-release.p12
 
       - name: Build APK
         run: |
+          set -euo pipefail
           flutter build apk --${{ steps.mode.outputs.mode }} \
             --dart-define=API_BASE_URL=${{ steps.api.outputs.url }}
 
-      - name: Verify APK signature
-        if: steps.mode.outputs.mode == 'release' && steps.signing.outputs.signed == 'true'
+      - name: Verify release APK is signed and installable
+        if: steps.mode.outputs.mode == 'release'
         run: |
+          set -euo pipefail
+
           APK=$(find build/app/outputs/flutter-apk -type f -name "*.apk" | head -1)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: APK not found"
-            exit 1
-          fi
-
+          test -n "$APK"
           echo "APK: $APK"
 
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" \
-            -type f -name apksigner | sort -V | tail -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -n "$APKSIGNER"
 
-          if [ -z "$APKSIGNER" ]; then
-            echo "ERROR: apksigner not found"
+          VERIFY_OUTPUT=$(mktemp)
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$VERIFY_OUTPUT"
+
+          grep -q 'Verified using v1 scheme: true' "$VERIFY_OUTPUT"
+          grep -q 'Verified using v2 scheme: true' "$VERIFY_OUTPUT"
+          grep -q 'Verified using v3 scheme: true' "$VERIFY_OUTPUT"
+
+          # Guard against an accidentally unsigned APK even if a future tool changes
+          # its human-readable output.
+          if unzip -l "$APK" | grep -q 'META-INF/MANIFEST.MF'; then
+            echo "V1 metadata present."
+          else
+            echo "ERROR: V1 signing metadata is missing."
             exit 1
           fi
 
-          "$APKSIGNER" verify --verbose "$APK"
+          echo "Release APK signature verification PASSED."
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6
