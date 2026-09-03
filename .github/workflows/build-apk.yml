@@ -89,7 +89,8 @@ jobs:
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
 
-      - name: Configure release signing
+      - name: Configure release signing (when secrets are available)
+        id: signing
         if: steps.mode.outputs.mode == 'release'
         env:
           MPORT_KEYSTORE_BASE64: ${{ secrets.MPORT_KEYSTORE_BASE64 }}
@@ -99,14 +100,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -n "$MPORT_KEYSTORE_BASE64"
-          test -n "$MPORT_KEYSTORE_PASSWORD"
-          test -n "$MPORT_KEY_ALIAS"
-          test -n "$MPORT_KEY_PASSWORD"
+          if [ -n "$MPORT_KEYSTORE_BASE64" ] && [ -n "$MPORT_KEYSTORE_PASSWORD" ] && \
+             [ -n "$MPORT_KEY_ALIAS" ] && [ -n "$MPORT_KEY_PASSWORD" ]; then
+            printf '%s' "$MPORT_KEYSTORE_BASE64" | base64 --decode > android/app/mport-release.p12
 
-          printf '%s' "$MPORT_KEYSTORE_BASE64" | base64 --decode > android/app/mport-release.p12
-
-          cat > android/key.properties <<EOF2
+            cat > android/key.properties <<EOF2
           storePassword=$MPORT_KEYSTORE_PASSWORD
           keyPassword=$MPORT_KEY_PASSWORD
           keyAlias=$MPORT_KEY_ALIAS
@@ -114,14 +112,18 @@ jobs:
           storeType=PKCS12
           EOF2
 
-          chmod 600 android/key.properties
-          chmod 600 android/app/mport-release.p12
-
-          test -s android/app/mport-release.p12
-          test -s android/key.properties
+            chmod 600 android/key.properties android/app/mport-release.p12
+            test -s android/app/mport-release.p12
+            test -s android/key.properties
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Release signing configured from GitHub Secrets."
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "WARNING: release signing secrets are not configured. Building an UNSIGNED release artifact."
+          fi
 
       - name: Verify signing configuration
-        if: steps.mode.outputs.mode == 'release'
+        if: steps.mode.outputs.mode == 'release' && steps.signing.outputs.signed == 'true'
         run: |
           grep -q 'create("release")' android/app/build.gradle.kts
           grep -q 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
@@ -129,13 +131,22 @@ jobs:
           test -f android/key.properties
           test -f android/app/mport-release.p12
 
+      - name: Report signing status
+        if: steps.mode.outputs.mode == 'release'
+        run: |
+          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
+            echo "Release APK will be signed with the configured MPorT keystore."
+          else
+            echo "WARNING: Release APK will be UNSIGNED because signing secrets are unavailable."
+          fi
+
       - name: Build APK
         run: |
           flutter build apk --${{ steps.mode.outputs.mode }} \
             --dart-define=API_BASE_URL=${{ steps.api.outputs.url }}
 
       - name: Verify APK signature
-        if: steps.mode.outputs.mode == 'release'
+        if: steps.mode.outputs.mode == 'release' && steps.signing.outputs.signed == 'true'
         run: |
           APK=$(find build/app/outputs/flutter-apk -type f -name "*.apk" | head -1)
 

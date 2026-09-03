@@ -60,7 +60,12 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Only attach the release keystore when CI/local signing material exists.
+            // This allows unsigned release builds for CI diagnostics without a keystore,
+            // while preserving the real release signature whenever key.properties exists.
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
