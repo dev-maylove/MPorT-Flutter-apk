@@ -88,7 +88,10 @@ class AppRouter {
             GoRoute(path: '/app/invoices', builder: (_, __) => const InvoicesScreen()),
             GoRoute(path: '/app/tickets', builder: (_, __) => const TicketsScreen()),
             GoRoute(path: '/app/profile', builder: (_, __) => const ProfileScreen()),
-            GoRoute(path: '/app/module/:module', builder: (_, state) => ModulePlaceholderScreen(role: 'user', module: state.pathParameters['module'] ?? 'module')),
+            GoRoute(path: '/app/module/:module', builder: (_, state) {
+              final m = state.pathParameters['module'] ?? 'module';
+              return ModulePlaceholderScreen(key: ValueKey('user-$m'), role: 'user', module: m);
+            }),
           ],
         ),
 
@@ -100,7 +103,10 @@ class AppRouter {
             GoRoute(path: '/tech/jobs', builder: (_, __) => const TechJobsScreen()),
             GoRoute(path: '/tech/materials', builder: (_, __) => const TechMaterialsScreen()),
             GoRoute(path: '/tech/map', builder: (_, __) => const TechMapScreen()),
-            GoRoute(path: '/tech/module/:module', builder: (_, state) => ModulePlaceholderScreen(role: 'technician', module: state.pathParameters['module'] ?? 'module')),
+            GoRoute(path: '/tech/module/:module', builder: (_, state) {
+              final m = state.pathParameters['module'] ?? 'module';
+              return ModulePlaceholderScreen(key: ValueKey('tech-$m'), role: 'technician', module: m);
+            }),
           ],
         ),
 
@@ -112,7 +118,10 @@ class AppRouter {
             GoRoute(path: '/admin/customers', builder: (_, __) => const AdminCustomersScreen()),
             GoRoute(path: '/admin/invoices', builder: (_, __) => const AdminInvoicesScreen()),
             GoRoute(path: '/admin/users', builder: (_, __) => const AdminUsersScreen()),
-            GoRoute(path: '/admin/module/:module', builder: (_, state) => ModulePlaceholderScreen(role: 'admin', module: state.pathParameters['module'] ?? 'module')),
+            GoRoute(path: '/admin/module/:module', builder: (_, state) {
+              final m = state.pathParameters['module'] ?? 'module';
+              return ModulePlaceholderScreen(key: ValueKey('admin-$m'), role: 'admin', module: m);
+            }),
           ],
         ),
       ],

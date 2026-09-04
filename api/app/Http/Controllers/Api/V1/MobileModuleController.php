@@ -58,9 +58,10 @@ class MobileModuleController extends Controller
 
     private const ADMIN_ONLY = [
         'users','technicians','roles','security-events','audit-logs','delivery-logs',
-        'whatsapp-numbers','whatsapp-activity','whatsapp','campaigns','settings','reports','ops',
+        'whatsapp-numbers','whatsapp-activity','whatsapp','campaigns','settings','ops',
         'network','coverage','network-assets','communications',
     ];
+    // reports is available to admin + technician (scoped in reports()).
 
     private const TECH_ONLY = ['tech-jobs','tech-map','material-requests','material-usages'];
 
@@ -71,7 +72,7 @@ class MobileModuleController extends Controller
 
         return match ($module) {
             'dashboard' => $this->dashboard($request),
-            'reports' => $this->reports(),
+            'reports' => $this->reports($request),
             'settings' => $this->settings(),
             'tech-map' => $this->techMap($request),
             'tech-jobs' => $this->techJobs($request),
@@ -191,9 +192,26 @@ class MobileModuleController extends Controller
 
     private function authorizeModule(User $user, string $module): void
     {
-        if (in_array($module, self::ADMIN_ONLY, true)) abort_unless($user->isAdmin(), 403);
-        if (in_array($module, self::TECH_ONLY, true)) abort_unless($user->isAdmin() || $user->role === 'technician', 403);
-        if (in_array($module, ['documents','help','service','announcements','packages'], true)) abort_unless($user->isAdmin() || $user->role === 'technician' || $user->role === 'user', 403);
+        // Unknown modules still go through indexModel / MAP; deny only explicit role gates.
+        if (in_array($module, self::ADMIN_ONLY, true)) {
+            abort_unless(method_exists($user, 'isAdmin') ? $user->isAdmin() : ($user->role === 'admin'), 403, 'Modul khusus admin');
+        }
+        if (in_array($module, self::TECH_ONLY, true)) {
+            abort_unless(
+                (method_exists($user, 'isAdmin') && $user->isAdmin()) || $user->role === 'technician' || $user->role === 'admin',
+                403,
+                'Modul khusus teknisi'
+            );
+        }
+        // reports: admin sees full stats, technician sees own job-oriented stats
+        if ($module === 'reports') {
+            abort_unless(
+                (method_exists($user, 'isAdmin') && $user->isAdmin()) || in_array($user->role, ['admin', 'technician'], true),
+                403,
+                'Akses laporan ditolak'
+            );
+        }
+        // notifications / announcements / help / documents / service / packages: any authenticated role
     }
 
     private function dashboard(Request $request)
@@ -216,9 +234,29 @@ class MobileModuleController extends Controller
         ]]);
     }
 
-    private function reports()
+    private function reports(Request $request)
     {
+        $user = $request->user();
+        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : ($user->role === 'admin');
+
+        if (! $isAdmin) {
+            // Technician-scoped summary
+            $ticketQ = Ticket::query()->where(function ($w) use ($user) {
+                $w->where('assigned_to', $user->id)->orWhere('technician_id', $user->id)->orWhere('user_id', $user->id);
+            });
+            return response()->json(['success'=>true,'message'=>'OK','data'=>[
+                'role' => 'technician',
+                'tickets' => [
+                    'total' => (clone $ticketQ)->count(),
+                    'open' => (clone $ticketQ)->whereIn('status',['open','in_progress'])->count(),
+                    'resolved' => (clone $ticketQ)->where('status','resolved')->count(),
+                ],
+                'notifications_unread' => Notification::where('user_id',$user->id)->whereNull('read_at')->count(),
+            ]]);
+        }
+
         return response()->json(['success'=>true,'message'=>'OK','data'=>[
+            'role' => 'admin',
             'customers'=>['total'=>Customer::count(),'active'=>Customer::where('status','active')->count()],
             'users'=>['total'=>User::count(),'technicians'=>User::where('role','technician')->count()],
             'invoices'=>['total'=>Invoice::count(),'unpaid'=>(float)Invoice::whereIn('status',['unpaid','overdue','partially_paid'])->sum('amount'),'paid'=>(float)Invoice::where('status','paid')->sum('amount')],

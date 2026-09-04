@@ -46,9 +46,10 @@ class RoleMenuDrawer extends StatelessWidget {
       MenuItemData('Tugas Saya', Icons.checklist_outlined, '/tech/jobs'),
       MenuItemData('Peta Lokasi', Icons.map_outlined, '/tech/map'),
       MenuItemData('Material & Stok', Icons.inventory_2_outlined, '/tech/materials'),
-      MenuItemData('Laporan', Icons.bar_chart_outlined, '/tech/module/reports'),
+      MenuItemData('Tugas (API)', Icons.assignment_outlined, '/tech/module/tech-jobs'),
       MenuItemData('Notifikasi', Icons.notifications_none, '/tech/module/notifications'),
-      MenuItemData('Pengaturan', Icons.settings_outlined, '/tech/module/settings'),
+      MenuItemData('Pengumuman', Icons.campaign_outlined, '/tech/module/announcements'),
+      MenuItemData('Bantuan', Icons.help_outline, '/tech/module/help'),
     ];
     return const [
       MenuItemData('Beranda', Icons.home_outlined, '/app'),
@@ -112,7 +113,7 @@ class RoleMenuDrawer extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
             title: const Text('Keluar', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700)),
-            onTap: () async { Navigator.pop(context); await auth.logout(); },
+            onTap: () async { Navigator.pop(context); await auth.logout(); if (context.mounted) context.go('/login'); },
           )),
         ]),
       ),

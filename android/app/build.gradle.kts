@@ -3,7 +3,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    // Built-in Kotlin (AGP 9+): do NOT apply org.jetbrains.kotlin.android
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -26,14 +26,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(
-                org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
-            )
-        }
-    }
-
     defaultConfig {
         applicationId = "id.mandalanet.mport"
         minSdk = flutter.minSdkVersion
@@ -47,8 +39,6 @@ android {
             if (keystorePropertiesFile.exists()) {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
-                // Path is relative to android/ (rootProject)
-                // e.g. storeFile=app/mport-release.p12
                 val storeFilePath = keystoreProperties["storeFile"] as String
                 storeFile = rootProject.file(storeFilePath)
                 storePassword =
@@ -69,6 +59,15 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+    }
+}
+
+// Top-level kotlin {} for built-in Kotlin (not inside android {})
+kotlin {
+    compilerOptions {
+        jvmTarget.set(
+            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        )
     }
 }
 

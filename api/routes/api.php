@@ -62,10 +62,14 @@ Route::prefix('v1')->group(function () {
         });
 
         // Hardened modules for Flutter mobile. Read API, role-scoped.
-        Route::get('modules/{module}', [MobileModuleController::class, 'index']);
+        // IMPORTANT: register concrete notification routes BEFORE the {module}/{id} wildcard.
         Route::post('modules/notifications/read-all', [MobileModuleController::class, 'markAllNotificationsRead']);
         Route::post('modules/notifications/{id}/read', [MobileModuleController::class, 'markNotificationRead'])->whereNumber('id');
-        Route::get('modules/{module}/{id}', [MobileModuleController::class, 'show'])->whereNumber('id');
+        Route::get('modules/{module}', [MobileModuleController::class, 'index'])
+            ->where('module', '^[a-z0-9\-]+$');
+        Route::get('modules/{module}/{id}', [MobileModuleController::class, 'show'])
+            ->where('module', '^[a-z0-9\-]+$')
+            ->whereNumber('id');
     });
 });
 

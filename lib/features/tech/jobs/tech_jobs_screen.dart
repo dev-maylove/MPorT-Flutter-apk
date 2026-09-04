@@ -31,8 +31,16 @@ class _TechJobsScreenState extends State<TechJobsScreen> {
     });
     final auth = context.read<AuthService>();
     try {
-      final res = await auth.client.get(ApiConfig.tickets, auth: true);
+      // Prefer hardened module endpoint, fallback ke /api/tickets
+      var res = await auth.modules.techJobs();
+      if (!res.isOk) {
+        res = await auth.client.get(ApiConfig.tickets, auth: true);
+      }
       if (!mounted) return;
+      if (res.statusCode == 401) {
+        await auth.logout();
+        return;
+      }
       if (!res.isOk) {
         setState(() {
           _error = res.message;
@@ -40,23 +48,35 @@ class _TechJobsScreenState extends State<TechJobsScreen> {
         });
         return;
       }
-      final raw = res.json?['data'] ?? res.json?['tickets'] ?? [];
-      final list = <Map<String, dynamic>>[];
-      if (raw is List) {
-        for (final e in raw) {
-          if (e is Map) list.add(Map<String, dynamic>.from(e));
-        }
-      }
+      final list = _extractList(res.json);
       setState(() {
         _items = list;
         _loading = false;
       });
     } catch (e) {
-      if (mounted) setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
+  }
+
+  List<Map<String, dynamic>> _extractList(Map<String, dynamic>? json) {
+    if (json == null) return [];
+    dynamic raw = json['data'] ?? json['tickets'] ?? json['items'];
+    // Laravel paginator: data.data
+    if (raw is Map && raw['data'] is List) {
+      raw = raw['data'];
+    }
+    final list = <Map<String, dynamic>>[];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is Map) list.add(Map<String, dynamic>.from(e));
+      }
+    }
+    return list;
   }
 
   @override

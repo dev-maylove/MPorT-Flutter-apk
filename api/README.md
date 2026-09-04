@@ -1,29 +1,48 @@
-# MPorT Flutter — Hardened Module API
+# MPorT Mobile Module API (companion)
 
-`lib/core/api/module_api.dart` is the Flutter facade for the modules found in
-`MPorT.v2.0.1-hardened`.
+Apply these files into the **Laravel backend** (MPorT Hardened) so Flutter
+can call `/api/v1/modules/{module}`.
 
-## Usage
+## Files to copy
 
-```dart
-final api = context.read<AuthService>().modules;
-final res = await api.customers(search: 'andi', status: 'active');
-if (res.isOk) {
-  final data = res.json?['data'];
-}
+| Project file | Backend destination |
+|---|---|
+| `api/routes/api.php` (module section) | `routes/api.php` inside `v1` + `auth:sanctum` group |
+| `api/app/Http/Controllers/Api/V1/MobileModuleController.php` | same path in Laravel app |
+
+## Required routes (after `php artisan route:list`)
+
+```
+GET  /api/v1/modules/{module}
+GET  /api/v1/modules/{module}/{id}
+POST /api/v1/modules/notifications/read-all
+POST /api/v1/modules/notifications/{id}/read
 ```
 
-## Modules
+If Flutter shows:
 
-Dashboard, customers, packages, invoices, payments, tickets, users, roles,
-materials, material requests/usages, network assets, network, coverage,
-subscriptions, notifications, announcements, communications, campaigns,
-WhatsApp numbers/activity, security events, audit logs, delivery logs,
-reports, settings, technician jobs/map, and OLT overview/signals/detail.
+```
+The route api/v1/modules/reports could not be found.
+```
 
-## Backend requirement
+the backend does **not** have these routes loaded. Copy the controller + routes,
+then:
 
-The companion `api/` directory contains the Laravel API
-controller and `routes/api.php` changes required for the new module endpoints.
-Apply these two files to the MPorT Hardened backend before using the new
-module API. Existing V1/legacy APIs remain compatible.
+```bash
+php artisan route:clear
+php artisan config:clear
+php artisan route:list | grep modules
+```
+
+## Modules used by the Flutter app
+
+- admin: packages, payments, support, network, network-assets, olt, technicians,
+  coverage, communications, ops-comms, campaigns, reports, materials, roles,
+  security, pages, settings, whatsapp, notifications, ...
+- technician: tech-jobs, tech-map, material-requests, notifications,
+  announcements, help, reports (scoped)
+- user: service, documents, help, payments, notifications, packages
+
+## Auth
+
+All module routes require `Authorization: Bearer {sanctum_token}`.

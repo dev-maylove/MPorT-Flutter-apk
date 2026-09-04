@@ -43,7 +43,8 @@ class _TechMapScreenState extends State<TechMapScreen> {
     final auth = context.read<AuthService>();
     try {
       final res = await auth.client.get(
-        '${ApiConfig.techMap}?filter=$_filter',
+        ApiConfig.techMap,
+        query: {'filter': _filter},
         auth: true,
       );
       if (!mounted) return;

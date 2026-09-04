@@ -19,14 +19,19 @@ class ApiResponse {
     if (json != null) {
       final m = json!['message'];
       if (m is String && m.isNotEmpty) return m;
+      if (m != null && m is! String) return m.toString();
       final errors = json!['errors'];
       if (errors is Map && errors.isNotEmpty) {
         final first = errors.values.first;
         if (first is List && first.isNotEmpty) return first.first.toString();
         return first.toString();
       }
+      // Laravel sometimes puts error text in `error`
+      final err = json!['error'];
+      if (err is String && err.isNotEmpty) return err;
     }
-    if (body.isNotEmpty && body.length < 200) return body;
+    if (body.isNotEmpty && body.length < 280) return body;
+    if (statusCode == 0) return 'Gagal terhubung ke server';
     return 'HTTP $statusCode';
   }
 }
