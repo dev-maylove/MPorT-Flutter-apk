@@ -24,3 +24,13 @@ android/app/mport-release.p12
 # Local workflow/build backups
 .github/workflows/backup/
 android/app/build.gradle.kts.backup-*
+
+# Android release signing
+android/key.properties
+android/app/key/*.p12
+android/app/key/*.jks
+
+# Android signing
+android/key.properties
+android/app/key/*.p12
+android/app/key/*.jks

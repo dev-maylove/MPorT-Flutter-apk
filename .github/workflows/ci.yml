@@ -2,9 +2,18 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop]
+    branches:
+      - main
+      - master
+      - develop
   pull_request:
-    branches: [main, master, develop]
+    branches:
+      - main
+      - master
+      - develop
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -20,17 +29,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           cache: true
 
-      - name: Flutter version
-        run: flutter --version
-
-      - name: Ensure asset dirs
+      - name: Verify toolchain
         run: |
+          set -euo pipefail
+          java -version
+          flutter --version
+
+      - name: Ensure asset directories
+        run: |
+          set -euo pipefail
           mkdir -p assets/images assets/icons
           touch assets/images/.gitkeep assets/icons/.gitkeep
 
@@ -40,18 +59,25 @@ jobs:
       - name: Verify Android project
         run: |
           set -euo pipefail
+
           test -f android/settings.gradle.kts
           test -f android/app/build.gradle.kts
           test -f android/app/src/main/AndroidManifest.xml
-          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml
-          grep -q 'android:value="2"' android/app/src/main/AndroidManifest.xml
-          grep -q 'FlutterActivity' android/app/src/main/kotlin/id/mandalanet/mport/MainActivity.kt
-          if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
-            sed -i 's/gradle-[0-9.]*-all.zip/gradle-9.3.1-all.zip/' android/gradle/wrapper/gradle-wrapper.properties
-          fi
+
+          grep -q 'flutterEmbedding' \
+            android/app/src/main/AndroidManifest.xml
+
+          grep -q 'android:value="2"' \
+            android/app/src/main/AndroidManifest.xml
+
+          grep -q 'FlutterActivity' \
+            android/app/src/main/kotlin/id/mandalanet/mport/MainActivity.kt
 
       - name: Analyze
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: |
+          flutter analyze \
+            --no-fatal-infos \
+            --no-fatal-warnings
 
       - name: Test
         run: flutter test

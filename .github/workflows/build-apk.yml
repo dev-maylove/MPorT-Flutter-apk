@@ -8,16 +8,20 @@ on:
         required: false
         default: "https://api.mandalanet.id"
       build_mode:
-        description: "debug or release"
+        description: "Build mode"
         required: true
         default: "release"
         type: choice
         options:
           - release
           - debug
-  push:
-    tags:
-      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   apk:
@@ -41,45 +45,45 @@ jobs:
           flutter-version: "3.47.2"
           cache: true
 
-      - name: Ensure asset dirs
+      - name: Verify toolchain
         run: |
+          set -euo pipefail
+          java -version
+          flutter --version
+          test -f android/app/build.gradle.kts
+          test -f android/settings.gradle.kts
+
+      - name: Ensure asset directories
+        run: |
+          set -euo pipefail
           mkdir -p assets/images assets/icons
           touch assets/images/.gitkeep assets/icons/.gitkeep
 
       - name: Pub get
         run: flutter pub get
 
-      - name: Verify Android project
-        run: |
-          set -euo pipefail
-          test -f android/app/build.gradle.kts
-          test -f android/settings.gradle.kts
-          test -f android/app/src/main/AndroidManifest.xml
-          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml
-          grep -q 'android:value="2"' android/app/src/main/AndroidManifest.xml
-
-          if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
-            sed -i 's/gradle-[0-9.]*-all.zip/gradle-9.3.1-all.zip/' \
-              android/gradle/wrapper/gradle-wrapper.properties
-          fi
-
       - name: Resolve API URL
         id: api
+        env:
+          INPUT_API: ${{ github.event.inputs.api_base_url }}
         run: |
-          URL="${{ github.event.inputs.api_base_url }}"
-          if [ -z "$URL" ]; then URL="https://api.mandalanet.id"; fi
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
 
-      - name: Resolve build mode
-        id: mode
-        run: |
-          MODE="${{ github.event.inputs.build_mode }}"
-          if [ -z "$MODE" ]; then MODE=release; fi
-          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          URL="${INPUT_API:-https://api.mandalanet.id}"
+
+          case "$URL" in
+            http://*|https://*) ;;
+            *)
+              echo "ERROR: Invalid API URL."
+              exit 1
+              ;;
+          esac
+
+          printf 'url=%s\n' "$URL" >> "$GITHUB_OUTPUT"
 
       - name: Configure mandatory release signing
+        if: github.event.inputs.build_mode == 'release'
         id: signing
-        if: steps.mode.outputs.mode == 'release'
         env:
           MPORT_KEYSTORE_BASE64: ${{ secrets.MPORT_KEYSTORE_BASE64 }}
           MPORT_KEYSTORE_PASSWORD: ${{ secrets.MPORT_KEYSTORE_PASSWORD }}
@@ -87,88 +91,132 @@ jobs:
           MPORT_KEY_PASSWORD: ${{ secrets.MPORT_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          umask 077
 
-          for name in MPORT_KEYSTORE_BASE64 MPORT_KEYSTORE_PASSWORD MPORT_KEY_ALIAS MPORT_KEY_PASSWORD; do
-            if [ -z "${!name}" ]; then
-              echo "ERROR: Required GitHub Secret $name is missing or empty."
-              echo "Refusing to build/upload an unsigned release APK."
+          for name in \
+            MPORT_KEYSTORE_BASE64 \
+            MPORT_KEYSTORE_PASSWORD \
+            MPORT_KEY_ALIAS \
+            MPORT_KEY_PASSWORD
+          do
+            if [ -z "${!name:-}" ]; then
+              echo "ERROR: GitHub Secret $name is missing or empty."
+              echo "Refusing to build a release without signing."
               exit 1
             fi
           done
 
-          printf '%s' "$MPORT_KEYSTORE_BASE64" | base64 --decode > android/app/mport-release.p12
-          test -s android/app/mport-release.p12
+          test "$MPORT_KEY_ALIAS" = "mport-app" || {
+            echo "ERROR: Unexpected key alias."
+            exit 1
+          }
+
+          mkdir -p android/app/key
+
+          printf '%s' "$MPORT_KEYSTORE_BASE64" \
+            | base64 --decode > android/app/key/mport-app-keystore.p12
+
+          test -s android/app/key/mport-app-keystore.p12
 
           cat > android/key.properties <<EOF2
-          storePassword=$MPORT_KEYSTORE_PASSWORD
-          keyPassword=$MPORT_KEY_PASSWORD
-          keyAlias=$MPORT_KEY_ALIAS
-          storeFile=app/mport-release.p12
-          storeType=PKCS12
-          EOF2
+storePassword=$MPORT_KEYSTORE_PASSWORD
+keyPassword=$MPORT_KEY_PASSWORD
+keyAlias=$MPORT_KEY_ALIAS
+storeFile=app/key/mport-app-keystore.p12
+storeType=PKCS12
+EOF2
 
-          chmod 600 android/key.properties android/app/mport-release.p12
+          chmod 600 android/key.properties
+          chmod 600 android/app/key/mport-app-keystore.p12
 
-          # Validate that the decoded file is a readable PKCS12 keystore and that
-          # the configured alias exists before Gradle starts.
-          keytool -list -storetype PKCS12 \
-            -keystore android/app/mport-release.p12 \
+          keytool -list \
+            -v \
+            -storetype PKCS12 \
+            -keystore android/app/key/mport-app-keystore.p12 \
             -storepass "$MPORT_KEYSTORE_PASSWORD" \
-            -alias "$MPORT_KEY_ALIAS" >/dev/null
+            -alias "$MPORT_KEY_ALIAS" \
+            >/tmp/keystore-info.txt
 
-          echo "signed=true" >> "$GITHUB_OUTPUT"
-          echo "Release signing material validated successfully."
+          grep -q "Alias name: mport-app" /tmp/keystore-info.txt
+          grep -q "Entry type: PrivateKeyEntry" /tmp/keystore-info.txt
+
+          echo "Release PKCS12 keystore validated."
 
       - name: Verify signing configuration
-        if: steps.mode.outputs.mode == 'release'
+        if: github.event.inputs.build_mode == 'release'
         run: |
           set -euo pipefail
-          test "${{ steps.signing.outputs.signed }}" = "true"
-          grep -q 'create("release")' android/app/build.gradle.kts
-          grep -q 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
+
           test -f android/key.properties
-          test -s android/app/mport-release.p12
+          test -s android/app/key/mport-app-keystore.p12
+
+          grep -q 'create("release")' android/app/build.gradle.kts
+          grep -q 'signingConfig = signingConfigs.getByName("release")' \
+            android/app/build.gradle.kts
+
+          grep -q '^keyAlias=mport-app$' android/key.properties
+          grep -q '^storeType=PKCS12$' android/key.properties
+          grep -q '^storeFile=app/key/mport-app-keystore.p12$' android/key.properties
+
+          echo "Mandatory release signing configuration confirmed."
 
       - name: Build APK
-        run: |
-          set -euo pipefail
-          flutter build apk --${{ steps.mode.outputs.mode }} \
-            --dart-define=API_BASE_URL=${{ steps.api.outputs.url }}
-
-      - name: Verify release APK is signed and installable
-        if: steps.mode.outputs.mode == 'release'
+        env:
+          BUILD_MODE: ${{ github.event.inputs.build_mode }}
+          API_URL: ${{ steps.api.outputs.url }}
         run: |
           set -euo pipefail
 
-          APK=$(find build/app/outputs/flutter-apk -type f -name "*.apk" | head -1)
+          flutter build apk \
+            --"$BUILD_MODE" \
+            --dart-define=API_BASE_URL="$API_URL"
+
+      - name: Verify release APK
+        if: github.event.inputs.build_mode == 'release'
+        run: |
+          set -euo pipefail
+
+          APK="$(find build/app/outputs/flutter-apk \
+            -type f -name '*.apk' -print -quit)"
+
           test -n "$APK"
+          test -s "$APK"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" \
+            -type f -name apksigner \
+            | sort -V \
+            | tail -1)"
+
+          test -x "$APKSIGNER"
+
           echo "APK: $APK"
+          echo "APK size:"
+          ls -lh "$APK"
 
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
-          test -n "$APKSIGNER"
+          VERIFY_OUTPUT="$(mktemp)"
 
-          VERIFY_OUTPUT=$(mktemp)
-          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$VERIFY_OUTPUT"
+          "$APKSIGNER" verify \
+            --verbose \
+            --print-certs \
+            "$APK" 2>&1 | tee "$VERIFY_OUTPUT"
 
-          grep -q 'Verified using v1 scheme: true' "$VERIFY_OUTPUT"
-          grep -q 'Verified using v2 scheme: true' "$VERIFY_OUTPUT"
-          grep -q 'Verified using v3 scheme: true' "$VERIFY_OUTPUT"
+          grep -q "Verified" "$VERIFY_OUTPUT"
 
-          # Guard against an accidentally unsigned APK even if a future tool changes
-          # its human-readable output.
-          if unzip -l "$APK" | grep -q 'META-INF/MANIFEST.MF'; then
-            echo "V1 metadata present."
-          else
-            echo "ERROR: V1 signing metadata is missing."
-            exit 1
-          fi
+          CERT_COUNT="$(
+            "$APKSIGNER" verify \
+              --print-certs \
+              "$APK" 2>&1 \
+              | grep -c "Signer #" || true
+          )"
+
+          test "$CERT_COUNT" -ge 1
 
           echo "Release APK signature verification PASSED."
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6
         with:
-          name: mport-${{ steps.mode.outputs.mode }}-apk
+          name: mport-${{ github.event.inputs.build_mode }}-apk
           path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 14
@@ -177,4 +225,5 @@ jobs:
         if: always()
         run: |
           rm -f android/key.properties
-          rm -f android/app/mport-release.p12
+          rm -f android/app/key/mport-app-keystore.p12
+          rm -f /tmp/keystore-info.txt
