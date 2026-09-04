@@ -1,24 +1,28 @@
-# Android toolchain (latest stable — Sep 2026)
+# Android toolchain — Flutter 3.47 verified
 
-| Component | Version | Notes |
-|-----------|---------|--------|
-| **AGP** | **9.4.0** | Latest stable; max API 37 |
-| **Gradle** | **9.6.0** | Minimum required by AGP 9.4 |
-| **Kotlin (KGP)** | **2.4.10** | Latest stable (Flutter verified 2.4.0) |
-| **Java** | **17** | Flutter 3.47 minimum |
-| **compile/targetSdk** | Flutter defaults (API 36) | `flutter.compileSdkVersion` / `targetSdkVersion` |
-| **minSdk** | Flutter default (API 24) | `flutter.minSdkVersion` |
-| **builtInKotlin** | **false** | AGP still embeds Kotlin 2.2.10 &lt; Flutter min 2.2.20 |
+CI uses **Flutter stable 3.47.2**. Official verified matrix:
 
-## Why not pure Built-in Kotlin yet?
+| Component | Version | Why |
+|-----------|---------|-----|
+| **AGP** | **9.1.0** | Newest verified with Flutter 3.47 |
+| **Gradle** | **9.3.1** | Required minimum for AGP 9.1 |
+| **Kotlin (KGP)** | **2.4.10** | Verified 2.4.0 + patch |
+| **Java** | **17** | Flutter minimum |
+| **builtInKotlin** | **false** | AGP embeds Kotlin 2.2.10 &lt; Flutter min 2.2.20 |
 
-Flutter rejects AGP’s embedded Kotlin 2.2.10. Explicit KGP 2.4.10 satisfies
-the checker. Re-enable `android.builtInKotlin=true` and drop KGP when AGP
-ships embedded Kotlin ≥ 2.2.20.
+## Do not use AGP 9.4.0 yet on this CI
 
-## Flutter 3.47 official verified matrix (for reference)
+AGP 9.4 requires **Gradle ≥ 9.6.0**. If the wrapper stays at 9.3.1 you get:
 
-- AGP 9.1.0 · KGP 2.4.0 · Gradle 9.3.1 · Java 17
+```
+Minimum supported Gradle version is 9.6.0. Current version is 9.3.1.
+```
 
-This project tracks **newer stable** AGP/Gradle/Kotlin while keeping the
-`builtInKotlin=false` workaround required by current Flutter.
+After upgrading **both** AGP → 9.4.0 **and** `distributionUrl` → `gradle-9.6.0-*.zip` in the same commit, newer AGP is fine.
+
+## Files that must be committed
+
+- `android/settings.gradle.kts`
+- `android/gradle/wrapper/gradle-wrapper.properties`
+- `android/gradle.properties`
+- `android/app/build.gradle.kts`
