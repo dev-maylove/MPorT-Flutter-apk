@@ -118,13 +118,13 @@ jobs:
 
           test -s android/app/key/mport-app-keystore.p12
 
-          cat > android/key.properties <<EOF2
-storePassword=$MPORT_KEYSTORE_PASSWORD
-keyPassword=$MPORT_KEY_PASSWORD
-keyAlias=$MPORT_KEY_ALIAS
-storeFile=app/key/mport-app-keystore.p12
-storeType=PKCS12
-EOF2
+          printf '%s\n' \
+            "storePassword=$MPORT_KEYSTORE_PASSWORD" \
+            "keyPassword=$MPORT_KEY_PASSWORD" \
+            "keyAlias=$MPORT_KEY_ALIAS" \
+            "storeFile=app/key/mport-app-keystore.p12" \
+            "storeType=PKCS12" \
+            > android/key.properties
 
           chmod 600 android/key.properties
           chmod 600 android/app/key/mport-app-keystore.p12
