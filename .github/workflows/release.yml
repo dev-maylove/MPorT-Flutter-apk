@@ -4,12 +4,14 @@ on:
   push:
     tags:
       - "v*"
+
   workflow_dispatch:
     inputs:
       version:
-        description: "Version label (e.g. 2.0.1)"
-        required: false
+        description: "Version label, e.g. 2.0.1"
+        required: true
         default: "2.0.1"
+
       api_base_url:
         description: "Production API base URL"
         required: false
@@ -17,6 +19,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release-android:
@@ -42,6 +48,7 @@ jobs:
 
       - name: Ensure asset dirs
         run: |
+          set -euo pipefail
           mkdir -p assets/images assets/icons
           touch assets/images/.gitkeep assets/icons/.gitkeep
 
@@ -51,28 +58,36 @@ jobs:
       - name: Verify Android project
         run: |
           set -euo pipefail
-          test -f android/app/build.gradle.kts
           test -f android/settings.gradle.kts
+          test -f android/app/build.gradle.kts
           test -f android/app/src/main/AndroidManifest.xml
-          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml
-          grep -q 'android:value="2"' android/app/src/main/AndroidManifest.xml
-
-          if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
-            sed -i 's/gradle-[0-9.]*-all.zip/gradle-9.3.1-all.zip/' \
-              android/gradle/wrapper/gradle-wrapper.properties
-          fi
+          grep -q 'create("release")' android/app/build.gradle.kts
+          grep -q 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
 
       - name: Resolve version & API
         id: meta
+        env:
+          EVENT_VERSION: ${{ github.event.inputs.version }}
+          EVENT_API: ${{ github.event.inputs.api_base_url }}
         run: |
+          set -euo pipefail
+
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VER="${GITHUB_REF#refs/tags/v}"
           else
-            VER="${{ github.event.inputs.version }}"
+            VER="${EVENT_VERSION:-2.0.1}"
           fi
 
-          API="${{ github.event.inputs.api_base_url }}"
+          API="${EVENT_API:-https://api.mandalanet.id}"
           if [ -z "$API" ]; then API="https://api.mandalanet.id"; fi
+
+          case "$API" in
+            http://*|https://*) ;;
+            *)
+              echo "ERROR: Invalid API URL."
+              exit 1
+              ;;
+          esac
 
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "api=$API" >> "$GITHUB_OUTPUT"
@@ -105,6 +120,7 @@ jobs:
           storeFile=app/mport-release.p12
           storeType=PKCS12
           EOF2
+          sed -i 's/^[[:space:]]*//' android/key.properties
 
           chmod 600 android/key.properties android/app/mport-release.p12
 
@@ -122,6 +138,8 @@ jobs:
           grep -q 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
           test -f android/key.properties
           test -s android/app/mport-release.p12
+          grep -q '^storeFile=app/mport-release.p12$' android/key.properties
+          echo "Signing configuration confirmed."
 
       - name: Build release APK
         run: |
@@ -130,34 +148,36 @@ jobs:
             --dart-define=API_BASE_URL=${{ steps.meta.outputs.api }}
 
       - name: Verify release APK signature BEFORE publishing
+        id: verify_apk
         run: |
           set -euo pipefail
 
           APK=$(find build/app/outputs/flutter-apk -type f -name "*.apk" | head -1)
           test -n "$APK"
+          test -s "$APK"
 
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
           test -n "$APKSIGNER"
+          test -x "$APKSIGNER"
+
+          echo "APK: $APK"
+          ls -lh "$APK"
 
           VERIFY_OUTPUT=$(mktemp)
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$VERIFY_OUTPUT"
 
+          # Match real apksigner output (v1 optional when minSdk >= 24)
           grep -Eq 'Verified using v2 scheme \(APK Signature Scheme v2\): true' "$VERIFY_OUTPUT"
           grep -Eq 'Verified using v3 scheme \(APK Signature Scheme v3\): true' "$VERIFY_OUTPUT"
 
-          CERT_COUNT=$(
-            "$APKSIGNER" verify --print-certs "$APK" 2>&1 \
-              | grep -c "Signer #" || true
-          )
-          test "$CERT_COUNT" -ge 1
+          # apksigner prints "Number of signers: N" and "V3.0 Signer:" — NOT "Signer #"
+          grep -Eq 'Number of signers: [1-9]' "$VERIFY_OUTPUT"
+          grep -Eq 'Signer: certificate DN:' "$VERIFY_OUTPUT"
 
           echo "Release APK is signed and verified (v2 + v3)."
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
 
-
-
-          echo "Release APK is signed and verified."
-
-      - name: Build App Bundle
+      - name: Build release AAB
         run: |
           set -euo pipefail
           flutter build appbundle --release \
@@ -170,23 +190,31 @@ jobs:
           test -n "$AAB"
           test -s "$AAB"
           echo "AAB: $AAB"
+          ls -lh "$AAB"
+
+      - name: Verify AAB signing
+        run: |
+          set -euo pipefail
+          AAB=$(find build/app/outputs/bundle/release -type f -name "*.aab" | head -1)
+          test -n "$AAB"
+          jarsigner -verify "$AAB"
+          echo "AAB signature verification PASSED."
 
       - name: Prepare release assets
         run: |
           set -euo pipefail
           mkdir -p dist
-
-          APK=$(find build/app/outputs/flutter-apk -type f -name "*release*.apk" | head -1)
+          APK="${{ steps.verify_apk.outputs.apk }}"
           test -n "$APK"
-          cp "$APK" "dist/MPorT-${{ steps.meta.outputs.version }}-release.apk"
-
+          test -s "$APK"
           AAB=$(find build/app/outputs/bundle/release -type f -name "*.aab" | head -1)
           test -n "$AAB"
+          test -s "$AAB"
+          cp "$APK" "dist/MPorT-${{ steps.meta.outputs.version }}-release.apk"
           cp "$AAB" "dist/MPorT-${{ steps.meta.outputs.version }}-release.aab"
-
           ls -lh dist/
 
-      - name: Upload artifacts
+      - name: Upload verified artifacts
         uses: actions/upload-artifact@v6
         with:
           name: mport-release-${{ steps.meta.outputs.version }}
@@ -201,7 +229,8 @@ jobs:
           name: MPorT ${{ steps.meta.outputs.version }}
           generate_release_notes: true
           files: |
-            dist/*
+            dist/MPorT-${{ steps.meta.outputs.version }}-release.apk
+            dist/MPorT-${{ steps.meta.outputs.version }}-release.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
