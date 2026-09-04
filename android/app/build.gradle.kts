@@ -55,7 +55,10 @@ android {
                 storeType =
                     keystoreProperties["storeType"] as String
 
-                // Required so CI apksigner checks for v1/v2/v3 all pass
+                // Best-effort: enable all schemes.
+                // Note: when minSdk >= 24, apksigner may still report v1=false
+                // even if the JAR signature is present, because Android 7+
+                // only needs v2+. CI must not require v1 in that case.
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
