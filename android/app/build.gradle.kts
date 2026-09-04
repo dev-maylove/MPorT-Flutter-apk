@@ -47,7 +47,8 @@ android {
             if (keystorePropertiesFile.exists()) {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
-                // Resolve relative to android/ (rootProject), not android/app/
+                // Path is relative to android/ (rootProject)
+                // e.g. storeFile=app/mport-release.p12
                 val storeFilePath = keystoreProperties["storeFile"] as String
                 storeFile = rootProject.file(storeFilePath)
                 storePassword =
@@ -55,10 +56,6 @@ android {
                 storeType =
                     keystoreProperties["storeType"] as String
 
-                // Best-effort: enable all schemes.
-                // Note: when minSdk >= 24, apksigner may still report v1=false
-                // even if the JAR signature is present, because Android 7+
-                // only needs v2+. CI must not require v1 in that case.
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
@@ -68,8 +65,6 @@ android {
 
     buildTypes {
         release {
-            // Release builds must never silently fall back to an unsigned APK.
-            // CI creates android/key.properties before invoking the release build.
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
