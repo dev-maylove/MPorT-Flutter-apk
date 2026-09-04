@@ -3,7 +3,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    // Built-in Kotlin (AGP 9+): do NOT apply org.jetbrains.kotlin.android
+    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -62,7 +62,6 @@ android {
     }
 }
 
-// Top-level kotlin {} for built-in Kotlin (not inside android {})
 kotlin {
     compilerOptions {
         jvmTarget.set(

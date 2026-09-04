@@ -19,8 +19,10 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    // Flutter 3.47 + AGP 9 — Built-in Kotlin (no org.jetbrains.kotlin.android)
-    id("com.android.application") version "9.1.0" apply false
+    // Latest stable AGP (Sep 2026) — requires Gradle >= 9.6.0
+    id("com.android.application") version "9.4.0" apply false
+    // Latest stable Kotlin — Flutter min is 2.2.20; verified matrix uses 2.4.0
+    id("org.jetbrains.kotlin.android") version "2.4.10" apply false
 }
 
 include(":app")
