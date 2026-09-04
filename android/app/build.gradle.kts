@@ -47,8 +47,6 @@ android {
             if (keystorePropertiesFile.exists()) {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
-                // Path is relative to android/ (rootProject)
-                // e.g. storeFile=app/mport-release.p12
                 val storeFilePath = keystoreProperties["storeFile"] as String
                 storeFile = rootProject.file(storeFilePath)
                 storePassword =

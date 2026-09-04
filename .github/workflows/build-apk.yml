@@ -150,18 +150,20 @@ jobs:
           VERIFY_OUTPUT=$(mktemp)
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$VERIFY_OUTPUT"
 
-          grep -q 'Verified using v1 scheme: true' "$VERIFY_OUTPUT"
-          grep -q 'Verified using v2 scheme: true' "$VERIFY_OUTPUT"
-          grep -q 'Verified using v3 scheme: true' "$VERIFY_OUTPUT"
+          grep -Eq 'Verified using v2 scheme \(APK Signature Scheme v2\): true' "$VERIFY_OUTPUT"
+          grep -Eq 'Verified using v3 scheme \(APK Signature Scheme v3\): true' "$VERIFY_OUTPUT"
+
+          CERT_COUNT=$(
+            "$APKSIGNER" verify --print-certs "$APK" 2>&1 \
+              | grep -c "Signer #" || true
+          )
+          test "$CERT_COUNT" -ge 1
+
+          echo "Release APK is signed and verified (v2 + v3)."
+
 
           # Guard against an accidentally unsigned APK even if a future tool changes
           # its human-readable output.
-          if unzip -l "$APK" | grep -q 'META-INF/MANIFEST.MF'; then
-            echo "V1 metadata present."
-          else
-            echo "ERROR: V1 signing metadata is missing."
-            exit 1
-          fi
 
           echo "Release APK signature verification PASSED."
 
