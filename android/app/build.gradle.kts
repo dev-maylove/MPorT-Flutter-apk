@@ -48,13 +48,17 @@ android {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
                 // Resolve relative to android/ (rootProject), not android/app/
-                // so storeFile=app/key/... or key/... both work correctly.
                 val storeFilePath = keystoreProperties["storeFile"] as String
                 storeFile = rootProject.file(storeFilePath)
                 storePassword =
                     keystoreProperties["storePassword"] as String
                 storeType =
                     keystoreProperties["storeType"] as String
+
+                // Required so CI apksigner checks for v1/v2/v3 all pass
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
