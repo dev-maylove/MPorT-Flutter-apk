@@ -47,9 +47,10 @@ android {
             if (keystorePropertiesFile.exists()) {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(
-                    keystoreProperties["storeFile"] as String
-                )
+                // Resolve relative to android/ (rootProject), not android/app/
+                // so storeFile=app/key/... or key/... both work correctly.
+                val storeFilePath = keystoreProperties["storeFile"] as String
+                storeFile = rootProject.file(storeFilePath)
                 storePassword =
                     keystoreProperties["storePassword"] as String
                 storeType =

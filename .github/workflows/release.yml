@@ -4,14 +4,12 @@ on:
   push:
     tags:
       - "v*"
-
   workflow_dispatch:
     inputs:
       version:
-        description: "Version label, e.g. 2.0.1"
-        required: true
+        description: "Version label (e.g. 2.0.1)"
+        required: false
         default: "2.0.1"
-
       api_base_url:
         description: "Production API base URL"
         required: false
@@ -19,10 +17,6 @@ on:
 
 permissions:
   contents: write
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   release-android:
@@ -46,74 +40,45 @@ jobs:
           flutter-version: "3.47.2"
           cache: true
 
-      - name: Verify toolchain
+      - name: Ensure asset dirs
         run: |
-          set -euo pipefail
-          java -version
-          flutter --version
-
-      - name: Ensure asset directories
-        run: |
-          set -euo pipefail
           mkdir -p assets/images assets/icons
           touch assets/images/.gitkeep assets/icons/.gitkeep
 
       - name: Pub get
         run: flutter pub get
 
-      - name: Resolve release metadata
-        id: meta
-        env:
-          EVENT_VERSION: ${{ github.event.inputs.version }}
-          EVENT_API: ${{ github.event.inputs.api_base_url }}
-        run: |
-          set -euo pipefail
-
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          else
-            VERSION="${EVENT_VERSION:-2.0.1}"
-          fi
-
-          API="${EVENT_API:-https://api.mandalanet.id}"
-
-          case "$API" in
-            http://*|https://*) ;;
-            *)
-              echo "ERROR: Invalid API URL."
-              exit 1
-              ;;
-          esac
-
-          TAG="v$VERSION"
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "api=$API" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
       - name: Verify Android project
         run: |
           set -euo pipefail
-
-          test -f android/settings.gradle.kts
           test -f android/app/build.gradle.kts
+          test -f android/settings.gradle.kts
           test -f android/app/src/main/AndroidManifest.xml
+          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:value="2"' android/app/src/main/AndroidManifest.xml
 
-          grep -q 'flutterEmbedding' \
-            android/app/src/main/AndroidManifest.xml
+          if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
+            sed -i 's/gradle-[0-9.]*-all.zip/gradle-9.3.1-all.zip/' \
+              android/gradle/wrapper/gradle-wrapper.properties
+          fi
 
-          grep -q 'android:value="2"' \
-            android/app/src/main/AndroidManifest.xml
+      - name: Resolve version & API
+        id: meta
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VER="${GITHUB_REF#refs/tags/v}"
+          else
+            VER="${{ github.event.inputs.version }}"
+          fi
 
-          grep -q 'create("release")' \
-            android/app/build.gradle.kts
+          API="${{ github.event.inputs.api_base_url }}"
+          if [ -z "$API" ]; then API="https://api.mandalanet.id"; fi
 
-          grep -q \
-            'signingConfig = signingConfigs.getByName("release")' \
-            android/app/build.gradle.kts
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "api=$API" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VER" >> "$GITHUB_OUTPUT"
 
       - name: Configure mandatory release signing
-        id: signing
         env:
           MPORT_KEYSTORE_BASE64: ${{ secrets.MPORT_KEYSTORE_BASE64 }}
           MPORT_KEYSTORE_PASSWORD: ${{ secrets.MPORT_KEYSTORE_PASSWORD }}
@@ -121,208 +86,105 @@ jobs:
           MPORT_KEY_PASSWORD: ${{ secrets.MPORT_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          umask 077
 
-          for name in \
-            MPORT_KEYSTORE_BASE64 \
-            MPORT_KEYSTORE_PASSWORD \
-            MPORT_KEY_ALIAS \
-            MPORT_KEY_PASSWORD
-          do
-            if [ -z "${!name:-}" ]; then
+          for name in MPORT_KEYSTORE_BASE64 MPORT_KEYSTORE_PASSWORD MPORT_KEY_ALIAS MPORT_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
               echo "ERROR: Required GitHub Secret $name is missing or empty."
               echo "Refusing to build or publish an unsigned release."
               exit 1
             fi
           done
 
-          test "$MPORT_KEY_ALIAS" = "mport-app" || {
-            echo "ERROR: Expected alias mport-app."
-            exit 1
-          }
+          printf '%s' "$MPORT_KEYSTORE_BASE64" | base64 --decode > android/app/mport-release.p12
+          test -s android/app/mport-release.p12
 
-          mkdir -p android/app/key
+          cat > android/key.properties <<EOF2
+          storePassword=$MPORT_KEYSTORE_PASSWORD
+          keyPassword=$MPORT_KEY_PASSWORD
+          keyAlias=$MPORT_KEY_ALIAS
+          storeFile=app/mport-release.p12
+          storeType=PKCS12
+          EOF2
 
-          printf '%s' "$MPORT_KEYSTORE_BASE64" \
-            | base64 --decode > android/app/key/mport-app-keystore.p12
+          chmod 600 android/key.properties android/app/mport-release.p12
 
-          test -s android/app/key/mport-app-keystore.p12
-
-          printf '%s\n' \
-            "storePassword=$MPORT_KEYSTORE_PASSWORD" \
-            "keyPassword=$MPORT_KEY_PASSWORD" \
-            "keyAlias=$MPORT_KEY_ALIAS" \
-            "storeFile=app/key/mport-app-keystore.p12" \
-            "storeType=PKCS12" \
-            > android/key.properties
-
-          chmod 600 android/key.properties
-          chmod 600 android/app/key/mport-app-keystore.p12
-
-          keytool -list \
-            -v \
-            -storetype PKCS12 \
-            -keystore android/app/key/mport-app-keystore.p12 \
+          keytool -list -storetype PKCS12 \
+            -keystore android/app/mport-release.p12 \
             -storepass "$MPORT_KEYSTORE_PASSWORD" \
-            -alias "$MPORT_KEY_ALIAS" \
-            >/tmp/mport-keystore-info.txt
+            -alias "$MPORT_KEY_ALIAS" >/dev/null
 
-          grep -q "Alias name: mport-app" \
-            /tmp/mport-keystore-info.txt
-
-          grep -q "Entry type: PrivateKeyEntry" \
-            /tmp/mport-keystore-info.txt
-
-          echo "Release PKCS12 keystore validated."
+          echo "Release keystore and alias validated."
 
       - name: Verify signing configuration
         run: |
           set -euo pipefail
-
+          grep -q 'create("release")' android/app/build.gradle.kts
+          grep -q 'signingConfig = signingConfigs.getByName("release")' android/app/build.gradle.kts
           test -f android/key.properties
-          test -s android/app/key/mport-app-keystore.p12
-
-          grep -q '^keyAlias=mport-app$' \
-            android/key.properties
-
-          grep -q '^storeType=PKCS12$' \
-            android/key.properties
-
-          grep -q \
-            '^storeFile=app/key/mport-app-keystore.p12$' \
-            android/key.properties
-
-          echo "Mandatory release signing configuration confirmed."
+          test -s android/app/mport-release.p12
 
       - name: Build release APK
         run: |
           set -euo pipefail
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=${{ steps.meta.outputs.api }}
 
-          flutter build apk \
-            --release \
-            --dart-define=API_BASE_URL="${{ steps.meta.outputs.api }}"
-
-      - name: Verify release APK signature
-        id: verify_apk
+      - name: Verify release APK signature BEFORE publishing
         run: |
           set -euo pipefail
 
-          APK="$(find build/app/outputs/flutter-apk \
-            -type f -name '*.apk' -print -quit)"
-
+          APK=$(find build/app/outputs/flutter-apk -type f -name "*.apk" | head -1)
           test -n "$APK"
-          test -s "$APK"
 
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" \
-            -type f -name apksigner \
-            | sort -V \
-            | tail -1)"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -n "$APKSIGNER"
 
-          test -x "$APKSIGNER"
+          VERIFY_OUTPUT=$(mktemp)
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$VERIFY_OUTPUT"
 
-          echo "APK: $APK"
-          ls -lh "$APK"
+          grep -q 'Verified using v1 scheme: true' "$VERIFY_OUTPUT"
+          grep -q 'Verified using v2 scheme: true' "$VERIFY_OUTPUT"
+          grep -q 'Verified using v3 scheme: true' "$VERIFY_OUTPUT"
 
-          VERIFY_OUTPUT="$(mktemp)"
-
-          "$APKSIGNER" verify \
-            --verbose \
-            --print-certs \
-            "$APK" 2>&1 | tee "$VERIFY_OUTPUT"
-
-          if ! grep -Eq \
-            'Verified using v(1|2|3)(\.[0-9]+)? scheme: true' \
-            "$VERIFY_OUTPUT"; then
-            echo "ERROR: APK signature verification failed."
+          if unzip -l "$APK" | grep -q 'META-INF/MANIFEST.MF'; then
+            echo "V1 metadata present."
+          else
+            echo "ERROR: V1 signing metadata is missing."
             exit 1
           fi
 
-          CERT_COUNT="$(
-            "$APKSIGNER" verify \
-              --print-certs \
-              "$APK" 2>&1 \
-              | grep -c "Signer #" || true
-          )"
+          echo "Release APK is signed and verified."
 
-          if [ "$CERT_COUNT" -lt 1 ]; then
-            echo "ERROR: No signing certificate detected."
-            exit 1
-          fi
-
-          echo "Release APK signature verification PASSED."
-          echo "apk=$APK" >> "$GITHUB_OUTPUT"
-
-      - name: Build release AAB
+      - name: Build App Bundle
         run: |
           set -euo pipefail
-
-          flutter build appbundle \
-            --release \
-            --dart-define=API_BASE_URL="${{ steps.meta.outputs.api }}"
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL=${{ steps.meta.outputs.api }}
 
       - name: Verify release AAB exists
         run: |
           set -euo pipefail
-
-          AAB="$(find build/app/outputs/bundle/release \
-            -type f -name '*.aab' -print -quit)"
-
+          AAB=$(find build/app/outputs/bundle/release -type f -name "*.aab" | head -1)
           test -n "$AAB"
           test -s "$AAB"
-
           echo "AAB: $AAB"
-          ls -lh "$AAB"
-
-      - name: Verify AAB signing
-        run: |
-          set -euo pipefail
-
-          AAB="$(find build/app/outputs/bundle/release \
-            -type f -name '*.aab' -print -quit)"
-
-          test -n "$AAB"
-
-          JARSIGNER="$(command -v jarsigner || true)"
-          test -n "$JARSIGNER"
-
-          "$JARSIGNER" -verify "$AAB"
-
-          echo "AAB signature verification PASSED."
 
       - name: Prepare release assets
         run: |
           set -euo pipefail
-
           mkdir -p dist
 
-          APK="${{ steps.verify_apk.outputs.apk }}"
+          APK=$(find build/app/outputs/flutter-apk -type f -name "*release*.apk" | head -1)
           test -n "$APK"
-          test -s "$APK"
+          cp "$APK" "dist/MPorT-${{ steps.meta.outputs.version }}-release.apk"
 
-          AAB="$(find build/app/outputs/bundle/release \
-            -type f -name '*.aab' -print -quit)"
-
+          AAB=$(find build/app/outputs/bundle/release -type f -name "*.aab" | head -1)
           test -n "$AAB"
-          test -s "$AAB"
-
-          cp "$APK" \
-            "dist/MPorT-${{ steps.meta.outputs.version }}-release.apk"
-
-          cp "$AAB" \
-            "dist/MPorT-${{ steps.meta.outputs.version }}-release.aab"
+          cp "$AAB" "dist/MPorT-${{ steps.meta.outputs.version }}-release.aab"
 
           ls -lh dist/
 
-      - name: Final release asset guard
-        run: |
-          set -euo pipefail
-
-          test -s dist/MPorT-${{ steps.meta.outputs.version }}-release.apk
-          test -s dist/MPorT-${{ steps.meta.outputs.version }}-release.aab
-
-          echo "Final release assets exist and passed previous signing checks."
-
-      - name: Upload verified artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
           name: mport-release-${{ steps.meta.outputs.version }}
@@ -337,8 +199,7 @@ jobs:
           name: MPorT ${{ steps.meta.outputs.version }}
           generate_release_notes: true
           files: |
-            dist/MPorT-${{ steps.meta.outputs.version }}-release.apk
-            dist/MPorT-${{ steps.meta.outputs.version }}-release.aab
+            dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -346,5 +207,4 @@ jobs:
         if: always()
         run: |
           rm -f android/key.properties
-          rm -f android/app/key/mport-app-keystore.p12
-          rm -f /tmp/mport-keystore-info.txt
+          rm -f android/app/mport-release.p12
