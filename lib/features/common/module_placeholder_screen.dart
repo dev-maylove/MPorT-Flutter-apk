@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -6,9 +5,14 @@ import '../../core/api/api_client.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 
+/// Generic module screen used by hamburger-menu routes that do not yet have
+/// a dedicated feature screen. It is intentionally a real UI, not a black
+/// placeholder: it shows module identity, API state, structured records and
+/// safe retry actions.
 class ModulePlaceholderScreen extends StatefulWidget {
   final String role;
   final String module;
+
   const ModulePlaceholderScreen({
     super.key,
     required this.role,
@@ -16,8 +20,7 @@ class ModulePlaceholderScreen extends StatefulWidget {
   });
 
   @override
-  State<ModulePlaceholderScreen> createState() =>
-      _ModulePlaceholderScreenState();
+  State<ModulePlaceholderScreen> createState() => _ModulePlaceholderScreenState();
 }
 
 class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
@@ -65,12 +68,55 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
     'dashboard': 'Dashboard',
   };
 
-  String get title =>
-      _titles[widget.module] ??
-      widget.module
-          .split('-')
-          .map((s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}')
-          .join(' ');
+  static const _icons = <String, IconData>{
+    'reports': Icons.bar_chart_rounded,
+    'settings': Icons.settings_rounded,
+    'notifications': Icons.notifications_rounded,
+    'announcements': Icons.campaign_rounded,
+    'tech-jobs': Icons.assignment_rounded,
+    'tech-map': Icons.map_rounded,
+    'customers': Icons.people_rounded,
+    'packages': Icons.inventory_2_rounded,
+    'invoices': Icons.receipt_long_rounded,
+    'payments': Icons.payments_rounded,
+    'tickets': Icons.support_agent_rounded,
+    'users': Icons.manage_accounts_rounded,
+    'technicians': Icons.engineering_rounded,
+    'materials': Icons.inventory_rounded,
+    'network-assets': Icons.dns_rounded,
+    'coverage': Icons.map_rounded,
+    'communications': Icons.campaign_rounded,
+    'ops-comms': Icons.cell_tower_rounded,
+    'support': Icons.support_agent_rounded,
+    'whatsapp': Icons.chat_rounded,
+    'campaigns': Icons.send_rounded,
+    'security': Icons.shield_rounded,
+    'audit-logs': Icons.fact_check_rounded,
+    'network': Icons.account_tree_rounded,
+    'olt': Icons.monitor_heart_rounded,
+    'service': Icons.wifi_rounded,
+    'documents': Icons.folder_rounded,
+    'help': Icons.help_rounded,
+  };
+
+  String get title => _titles[widget.module] ??
+      widget.module.split('-').map((s) => s.isEmpty
+          ? s
+          : '${s[0].toUpperCase()}${s.substring(1)}').join(' ');
+
+  IconData get icon => _icons[widget.module] ?? Icons.apps_rounded;
+
+  Color get accent => widget.role == 'admin'
+      ? AppColors.admin
+      : widget.role == 'technician'
+          ? AppColors.tech
+          : AppColors.cyan;
+
+  String get roleLabel => widget.role == 'admin'
+      ? 'ADMIN'
+      : widget.role == 'technician'
+          ? 'TEKNISI'
+          : 'PELANGGAN';
 
   @override
   void initState() {
@@ -90,6 +136,7 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
   Future<void> _load() async {
     if (!mounted) return;
     setState(() => _loading = true);
+
     final auth = context.read<AuthService>();
     final res = await auth.modules.list(widget.module);
     if (!mounted) return;
@@ -109,45 +156,40 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
   Future<void> _markAllRead() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final auth = context.read<AuthService>();
-    final res = await auth.modules.markAllNotificationsRead();
+    final res = await context.read<AuthService>().modules.markAllNotificationsRead();
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(res.message)),
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(res.message),
+      ),
     );
     if (res.isOk) _load();
   }
 
-  /// Unwrap Laravel shapes:
-  /// - { data: [ ... ] }
-  /// - { data: { data: [ ... ], current_page, total } }  (paginator)
-  /// - { data: { ...object } }
   dynamic get _payload {
     final root = _response?.json;
-    if (root == null) return null;
+    if (root is! Map) return null;
     final data = root['data'];
     if (data is Map) {
       final inner = data['data'];
-      if (inner is List) return inner; // paginator
-      return data; // plain object
+      if (inner is List) return inner;
+      return data;
     }
-    return data; // list or scalar
+    return data;
   }
 
   void _goBack() {
-    final role = widget.role;
     if (context.canPop()) {
       context.pop();
       return;
     }
-    if (role == 'admin') {
-      context.go('/admin');
-    } else if (role == 'technician') {
-      context.go('/tech');
-    } else {
-      context.go('/app');
-    }
+    context.go(widget.role == 'admin'
+        ? '/admin'
+        : widget.role == 'technician'
+            ? '/tech'
+            : '/app');
   }
 
   @override
@@ -155,8 +197,25 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(title),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .13),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accent.withValues(alpha: .28)),
+              ),
+              child: Icon(icon, size: 19, color: accent),
+            ),
+            const SizedBox(width: 10),
+            Flexible(child: Text(title)),
+          ],
+        ),
         leading: IconButton(
+          tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: _goBack,
         ),
@@ -175,164 +234,175 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(onRefresh: _load, child: _body()),
+          ? _loadingView()
+          : RefreshIndicator(
+              color: accent,
+              onRefresh: _load,
+              child: _body(),
+            ),
+    );
+  }
+
+  Widget _loadingView() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(18),
+      children: [
+        _heroCard(),
+        const SizedBox(height: 14),
+        const Center(child: Padding(
+          padding: EdgeInsets.all(28),
+          child: CircularProgressIndicator(),
+        )),
+      ],
     );
   }
 
   Widget _body() {
     final res = _response;
-    if (res == null) return _error('Tidak ada respons dari server.');
-    if (!res.isOk) {
-      return _error(_friendlyError(res), status: res.statusCode);
-    }
-
     final data = _payload;
-    if (data == null) {
-      return _empty('Modul "$title" tidak mengembalikan data.');
-    }
 
-    if (data is List) {
-      if (data.isEmpty) return _empty('Belum ada data untuk $title.');
-      return ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        itemCount: data.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, i) => _cardFor(data[i]),
-      );
-    }
-
-    if (data is Map) {
-      final map = Map<String, dynamic>.from(data);
-      // Stats-style object (reports/dashboard/settings): show key-value rows
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: _expandMap(map),
-      );
-    }
-
-    return _empty(data.toString());
-  }
-
-  List<Widget> _expandMap(Map<String, dynamic> map, {String? prefix}) {
-    final widgets = <Widget>[];
-    map.forEach((key, value) {
-      final label = prefix == null ? key : '$prefix.$key';
-      if (value is Map) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: AppColors.cyan,
-              ),
-            ),
-          ),
-        );
-        widgets.addAll(
-          _expandMap(Map<String, dynamic>.from(value), prefix: null),
-        );
-      } else if (value is List) {
-        widgets.add(
-          Card(
-            color: AppColors.surface.withValues(alpha: 0.9),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: ListTile(
-              title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('${value.length} item'),
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  backgroundColor: AppColors.surface,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                  builder: (_) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: SingleChildScrollView(
-                      child: Text(
-                        const JsonEncoder.withIndent('  ').convert(value),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      } else {
-        widgets.add(
-          Card(
-            color: AppColors.surface.withValues(alpha: 0.9),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: ListTile(
-              title: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-              subtitle: Text(
-                '$value',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text,
-                ),
-              ),
-            ),
-          ),
-        );
-      }
-    });
-    return widgets;
-  }
-
-  String _friendlyError(ApiResponse res) {
-    final raw = res.message.trim();
-    if (res.statusCode == 404 ||
-        raw.toLowerCase().contains('could not be found') ||
-        raw.toLowerCase().contains('not found')) {
-      return 'Endpoint modul "${widget.module}" belum tersedia di server.\n'
-          'Deploy backend FLUTTER-READY dan jalankan:\n'
-          'php artisan route:clear';
-    }
-    if (res.statusCode == 403) {
-      return 'Akses ditolak untuk "$title".\n'
-          'Role Anda tidak memiliki izin modul ini.';
-    }
-    if (res.statusCode == 401) {
-      return 'Sesi berakhir. Silakan login ulang.';
-    }
-    if (res.statusCode == 0) {
-      return raw.isEmpty
-          ? 'Tidak dapat terhubung ke server. Periksa Wi‑Fi / API_BASE_URL.'
-          : raw;
-    }
-    if (raw.isEmpty) return 'Gagal memuat modul (HTTP ${res.statusCode}).';
-    return raw;
-  }
-
-  Widget _cardFor(dynamic item) {
-    if (item is Map) {
-      return _itemCard(Map<String, dynamic>.from(item));
-    }
-    return Card(
-      child: ListTile(title: Text('$item')),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+      children: [
+        _heroCard(),
+        const SizedBox(height: 14),
+        if (res == null)
+          _statusCard(
+            icon: Icons.cloud_off_rounded,
+            title: 'Server tidak merespons',
+            message: 'Belum ada respons untuk modul ini.',
+            action: 'Coba lagi',
+          )
+        else if (!res.isOk)
+          _errorCard(res)
+        else if (data == null)
+          _statusCard(
+            icon: Icons.inbox_outlined,
+            title: 'Belum ada data',
+            message: 'Modul sudah terbuka, tetapi server belum mengirim data.',
+            action: 'Muat ulang',
+          )
+        else if (data is List)
+          _listContent(data)
+        else if (data is Map)
+          _mapContent(Map<String, dynamic>.from(data))
+        else
+          _valueCard('$data'),
+      ],
     );
   }
 
-  Widget _itemCard(Map<String, dynamic> m) {
-    final title = (m['title'] ??
+  Widget _heroCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: .17),
+            AppColors.card.withValues(alpha: .94),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accent.withValues(alpha: .24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: .13),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: accent.withValues(alpha: .32)),
+            ),
+            child: Icon(icon, color: accent, size: 28),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 5),
+                Text(
+                  '$roleLabel • MPorT Portal',
+                  style: TextStyle(color: accent, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .7),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Informasi dan operasional ${title.toLowerCase()}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _listContent(List data) {
+    if (data.isEmpty) {
+      return _statusCard(
+        icon: Icons.inbox_outlined,
+        title: 'Belum ada data',
+        message: 'Tidak ada item untuk $title saat ini.',
+        action: 'Muat ulang',
+      );
+    }
+
+    return Column(
+      children: [
+        _sectionTitle('${data.length} item', Icons.view_list_rounded),
+        const SizedBox(height: 8),
+        ...data.asMap().entries.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _itemCard(entry.value, entry.key + 1),
+            )),
+      ],
+    );
+  }
+
+  Widget _mapContent(Map<String, dynamic> map) {
+    final entries = map.entries.toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('Ringkasan', Icons.insights_rounded),
+        const SizedBox(height: 8),
+        ...entries.map((e) => _dataTile(e.key, e.value)),
+      ],
+    );
+  }
+
+  Widget _sectionTitle(String text, IconData sectionIcon) {
+    return Row(
+      children: [
+        Icon(sectionIcon, size: 18, color: accent),
+        const SizedBox(width: 8),
+        Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+      ],
+    );
+  }
+
+  Widget _itemCard(dynamic item, int index) {
+    if (item is! Map) {
+      return _valueCard(item.toString(), index: index);
+    }
+
+    final m = Map<String, dynamic>.from(item);
+    final itemTitle = (m['title'] ??
             m['name'] ??
             m['subject'] ??
             m['invoice_number'] ??
@@ -341,7 +411,7 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
             m['asset_code'] ??
             m['code'] ??
             m['id'] ??
-            widget.module)
+            '$title #$index')
         .toString();
     final subtitle = (m['body'] ??
             m['description'] ??
@@ -352,93 +422,345 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
             '')
         .toString();
 
-    return Card(
-      color: AppColors.surface.withValues(alpha: 0.9),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: ListTile(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: subtitle.isEmpty
-            ? null
-            : Text(subtitle, maxLines: 3, overflow: TextOverflow.ellipsis),
-        onTap: () {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: AppColors.surface,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            builder: (_) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: SingleChildScrollView(
+    return Material(
+      color: AppColors.card.withValues(alpha: .92),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _showDetails(m),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
                 child: Text(
-                  const JsonEncoder.withIndent('  ').convert(m),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  '$index',
+                  style: TextStyle(color: accent, fontWeight: FontWeight.w900),
                 ),
               ),
-            ),
-          );
-        },
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(itemTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted2),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _error(String message, {int? status}) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(24),
-      children: [
-        const SizedBox(height: 48),
-        Icon(Icons.cloud_off_rounded, size: 64, color: Colors.redAccent.shade200),
-        const SizedBox(height: 16),
-        const Text(
-          'Gagal memuat modul',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+  Widget _dataTile(String key, dynamic value) {
+    final label = key.replaceAll('_', ' ');
+    if (value is Map || value is List) {
+      final count = value is List ? value.length : (value as Map).length;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: AppColors.card.withValues(alpha: .92),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              if (value is Map) {
+                _showDetails(Map<String, dynamic>.from(value));
+              } else if (value is List) {
+                _showListDetails(label, value);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.folder_open_rounded, color: accent, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: Text(label,
+                          style: const TextStyle(fontWeight: FontWeight.w700))),
+                  Text('$count item',
+                      style: const TextStyle(color: AppColors.muted)),
+                  const Icon(Icons.chevron_right_rounded, color: AppColors.muted2),
+                ],
+              ),
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-        ),
-        if (status != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            'HTTP $status · ${widget.module}',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.45),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.card.withValues(alpha: .92),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],
-        const SizedBox(height: 20),
-        Center(
-          child: OutlinedButton.icon(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Coba lagi'),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _empty(String message) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(24),
-      children: [
-        const SizedBox(height: 48),
-        Icon(Icons.inbox_outlined,
-            size: 64, color: Colors.white.withValues(alpha: 0.4)),
-        const SizedBox(height: 16),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-        ),
-      ],
+  Widget _valueCard(String value, {int? index}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card.withValues(alpha: .92),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.data_object_rounded, color: accent),
+          const SizedBox(width: 12),
+          Expanded(child: Text(index == null ? value : '#$index  $value')),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorCard(ApiResponse res) {
+    final raw = res.message.trim();
+    final message = res.statusCode == 403
+        ? 'Akses ditolak. Role Anda tidak memiliki izin untuk modul ini.'
+        : res.statusCode == 404
+            ? 'Endpoint modul belum tersedia di server. UI tetap aktif dan dapat dimuat ulang setelah backend tersedia.'
+            : res.statusCode == 0
+                ? (raw.isEmpty ? 'Tidak dapat terhubung ke server. Periksa koneksi dan API_BASE_URL.' : raw)
+                : (raw.isEmpty ? 'Gagal memuat modul (HTTP ${res.statusCode}).' : raw);
+
+    return _statusCard(
+      icon: res.statusCode == 403 ? Icons.lock_outline_rounded : Icons.cloud_off_rounded,
+      title: 'Data belum tersedia',
+      message: message,
+      action: 'Coba lagi',
+      status: res.statusCode,
+    );
+  }
+
+  Widget _statusCard({
+    required IconData icon,
+    required String title,
+    required String message,
+    required String action,
+    int? status,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.card.withValues(alpha: .94),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 46, color: accent.withValues(alpha: .85)),
+          const SizedBox(height: 10),
+          Text(title, textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 7),
+          Text(message, textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.muted, height: 1.45)),
+          if (status != null) ...[
+            const SizedBox(height: 6),
+            Text('HTTP $status • ${widget.module}',
+                style: const TextStyle(color: AppColors.muted2, fontSize: 11)),
+          ],
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh_rounded),
+            label: Text(action),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDetails(Map<String, dynamic> data) async {
+    final entries = data.entries.toList();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          title: Row(
+            children: [
+              Icon(icon, color: accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 430, maxWidth: 420),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: entries.map((e) {
+                  final label = e.key.replaceAll('_', ' ');
+                  final v = e.value;
+                  String display;
+                  if (v == null) {
+                    display = '—';
+                  } else if (v is Map || v is List) {
+                    final n = v is List ? v.length : (v as Map).length;
+                    display = '$n item';
+                  } else {
+                    display = '$v';
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            display,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showListDetails(String label, List data) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          title: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 430, maxWidth: 420),
+            child: data.isEmpty
+                ? const Text('Tidak ada item', style: TextStyle(color: AppColors.muted))
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: data.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final item = data[i];
+                      if (item is Map) {
+                        final m = Map<String, dynamic>.from(item);
+                        final t = (m['title'] ??
+                                m['name'] ??
+                                m['subject'] ??
+                                m['label'] ??
+                                m['id'] ??
+                                'Item ${i + 1}')
+                            .toString();
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(t, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            _showDetails(m);
+                          },
+                        );
+                      }
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('$item'),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

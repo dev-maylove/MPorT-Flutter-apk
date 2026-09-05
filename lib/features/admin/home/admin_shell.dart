@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/exit_guard.dart';
+import '../../../core/widgets/hamburger_button.dart';
 import '../../../core/widgets/role_menu_drawer.dart';
 
 class AdminShell extends StatelessWidget {
@@ -28,7 +29,12 @@ class AdminShell extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         drawer: const RoleMenuDrawer(role: 'admin'),
-        body: Stack(children: [child, Positioned(top: 8, left: 10, child: Builder(builder: (context) => Material(color: Colors.transparent, child: IconButton(tooltip: 'Menu', onPressed: () => Scaffold.of(context).openDrawer(), icon: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.surface.withValues(alpha: .88), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: const Icon(Icons.menu_rounded))))))]),
+        body: Stack(
+          children: [
+            child,
+            const HamburgerButton(),
+          ],
+        ),
         bottomNavigationBar: NavigationBar(
           backgroundColor: AppColors.surface.withValues(alpha: 0.92),
           selectedIndex: idx,

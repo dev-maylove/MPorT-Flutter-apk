@@ -1,7 +1,18 @@
-# Branding update
+# Branding update — logo & app icon
 
-- App launcher icon: source image 2 (`531860.png`).
-- Application/content logo: source image 1 (`531891.png`) with the outer black background made transparent.
-- Native Android splash logo: image 1 with transparent outer background.
-- Android launcher backgrounds use MPorT dark `#06080F`.
-- Adaptive launcher foreground is transparent and scaled to Android safe-area margins.
+Tanggal: 2026-09-05
+
+## Sumber
+Gambar monogram **M** biru neon + motif circuit, frame rounded-square, background transparan
+(`534350.jpg` → diproses ke PNG RGBA).
+
+## Yang diganti
+- `assets/images/mport_logo.png` (512×512, RGBA, luar transparan) — dipakai login & splash Flutter
+- Adaptive icon FG/BG semua densitas (`mipmap-mdpi` … `mipmap-xxxhdpi`)
+- Legacy `ic_launcher.png` semua densitas
+- Native splash: `drawable-nodpi/mport_splash_logo.png`, `mport_splash_icon.png`
+- Background adaptive / launcher: `#06080F` (selaras AppColors.bg)
+
+## Catatan teknis
+Sumber JPEG menampilkan checkerboard (simulasi transparan). Skrip mengekstrak ikon,
+membuang area terang/abu di luar frame, dan menghasilkan PNG transparan sejati.
