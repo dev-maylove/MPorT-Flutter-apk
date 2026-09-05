@@ -157,7 +157,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Ticket Support')),
+      appBar: AppBar(centerTitle: true, title: const Text('Ticket Support')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createTicket,
         icon: const Icon(Icons.add),

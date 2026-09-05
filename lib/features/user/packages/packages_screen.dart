@@ -70,7 +70,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Paket Internet')),
+      appBar: AppBar(centerTitle: true, title: const Text('Paket Internet')),
       body: RefreshIndicator(
         onRefresh: _load,
         color: AppColors.cyan,

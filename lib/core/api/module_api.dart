@@ -15,6 +15,15 @@ class ModuleApi {
   Future<ApiResponse> get(String module, int id) =>
       client.get('/api/v1/modules/${Uri.encodeComponent(module)}/$id', auth: true);
 
+  Future<ApiResponse> create(String module, Map<String, dynamic> body) =>
+      client.post('/api/v1/modules/${Uri.encodeComponent(module)}', body: body, auth: true);
+
+  Future<ApiResponse> update(String module, int id, Map<String, dynamic> body) =>
+      client.put('/api/v1/modules/${Uri.encodeComponent(module)}/$id', body: body, auth: true);
+
+  Future<ApiResponse> delete(String module, int id) =>
+      client.delete('/api/v1/modules/${Uri.encodeComponent(module)}/$id', auth: true);
+
   Future<ApiResponse> dashboard() => list('dashboard');
   Future<ApiResponse> reports() => list('reports');
   Future<ApiResponse> settings() => list('settings');

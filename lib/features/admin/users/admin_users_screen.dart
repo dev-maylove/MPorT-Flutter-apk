@@ -234,6 +234,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        centerTitle: true,
         title: const Text('Users & Roles'),
         actions: [
           PopupMenuButton<String?>(

@@ -61,6 +61,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        centerTitle: true,
         title: const Text('Dashboard Operasional'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),

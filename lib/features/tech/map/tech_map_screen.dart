@@ -110,6 +110,7 @@ class _TechMapScreenState extends State<TechMapScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        centerTitle: true,
         title: const Text('Peta Coverage'),
         actions: [
           PopupMenuButton<String>(

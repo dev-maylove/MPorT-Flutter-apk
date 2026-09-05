@@ -77,6 +77,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         slivers: [
           SliverAppBar(
             floating: true,
+            centerTitle: true,
             title: const Text('MPorT'),
             actions: [
               IconButton(

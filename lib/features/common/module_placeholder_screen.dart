@@ -197,23 +197,8 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: .13),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: accent.withValues(alpha: .28)),
-              ),
-              child: Icon(icon, size: 19, color: accent),
-            ),
-            const SizedBox(width: 10),
-            Flexible(child: Text(title)),
-          ],
-        ),
+        centerTitle: true,
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         leading: IconButton(
           tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back_rounded),
@@ -233,6 +218,14 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
           ),
         ],
       ),
+      floatingActionButton: widget.role == 'admin'
+          ? FloatingActionButton.extended(
+              onPressed: _adminCreate,
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah'),
+              backgroundColor: accent,
+            )
+          : null,
       body: _loading
           ? _loadingView()
           : RefreshIndicator(
@@ -694,6 +687,23 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
             ),
           ),
           actions: [
+            if (widget.role == 'admin' && data['id'] != null) ...[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  _adminEdit(data);
+                },
+                child: const Text('Edit'),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  _adminDelete(data);
+                },
+                child: const Text('Hapus'),
+              ),
+            ],
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Tutup'),
@@ -702,6 +712,147 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
         );
       },
     );
+  }
+
+  Future<void> _adminCreate() async {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Tambah $title', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 12),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nama / Judul')),
+              const SizedBox(height: 8),
+              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Deskripsi / Status'), maxLines: 2),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Simpan'),
+              ),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+            ],
+          ),
+        );
+      },
+    );
+    if (ok != true || !mounted) return;
+    final body = <String, dynamic>{
+      'name': nameCtrl.text.trim(),
+      'title': nameCtrl.text.trim(),
+      if (descCtrl.text.trim().isNotEmpty) 'description': descCtrl.text.trim(),
+      if (descCtrl.text.trim().isNotEmpty) 'status': descCtrl.text.trim(),
+    };
+    final res = await context.read<AuthService>().modules.create(widget.module, body);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(res.isOk ? 'Berhasil ditambahkan' : res.message)),
+    );
+    if (res.isOk) _load();
+  }
+
+  Future<void> _adminEdit(Map<String, dynamic> data) async {
+    final id = data['id'];
+    if (id == null) return;
+    final nameCtrl = TextEditingController(
+      text: (data['name'] ?? data['title'] ?? data['label'] ?? '').toString(),
+    );
+    final descCtrl = TextEditingController(
+      text: (data['description'] ?? data['status'] ?? data['body'] ?? '').toString(),
+    );
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Edit $title', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 12),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nama / Judul')),
+              const SizedBox(height: 8),
+              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Deskripsi / Status'), maxLines: 2),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Simpan'),
+              ),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+            ],
+          ),
+        );
+      },
+    );
+    if (ok != true || !mounted) return;
+    final body = Map<String, dynamic>.from(data)
+      ..['name'] = nameCtrl.text.trim()
+      ..['title'] = nameCtrl.text.trim();
+    if (descCtrl.text.trim().isNotEmpty) {
+      body['description'] = descCtrl.text.trim();
+      body['status'] = descCtrl.text.trim();
+    }
+    final res = await context.read<AuthService>().modules.update(widget.module, int.parse(id.toString()), body);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(res.isOk ? 'Berhasil diperbarui' : res.message)),
+    );
+    if (res.isOk) _load();
+  }
+
+  Future<void> _adminDelete(Map<String, dynamic> data) async {
+    final id = data['id'];
+    if (id == null) return;
+    final label = (data['name'] ?? data['title'] ?? data['label'] ?? id).toString();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus data?'),
+        content: Text('Yakin hapus $label?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    final res = await context.read<AuthService>().modules.delete(widget.module, int.parse(id.toString()));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(res.isOk ? 'Dihapus' : res.message)),
+    );
+    if (res.isOk) _load();
   }
 
   Future<void> _showListDetails(String label, List data) async {

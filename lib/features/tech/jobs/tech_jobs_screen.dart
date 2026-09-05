@@ -83,7 +83,7 @@ class _TechJobsScreenState extends State<TechJobsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Jobs / Work Order')),
+      appBar: AppBar(centerTitle: true, title: const Text('Jobs / Work Order')),
       body: RefreshIndicator(
         onRefresh: _load,
         color: AppColors.tech,

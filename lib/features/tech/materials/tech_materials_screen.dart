@@ -312,6 +312,7 @@ class _TechMaterialsScreenState extends State<TechMaterialsScreen>
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        centerTitle: true,
         title: const Text('Material & Stok'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),

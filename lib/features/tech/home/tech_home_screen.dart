@@ -26,6 +26,7 @@ class TechHomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        centerTitle: true,
         title: const Text('Teknisi'),
         actions: [
           IconButton(

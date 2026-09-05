@@ -78,7 +78,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Tagihan')),
+      appBar: AppBar(centerTitle: true, title: const Text('Tagihan')),
       body: RefreshIndicator(
         onRefresh: _load,
         color: AppColors.cyan,

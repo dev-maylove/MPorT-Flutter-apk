@@ -54,8 +54,9 @@ class AppTheme {
         backgroundColor: Colors.transparent,
         foregroundColor: AppColors.text,
         elevation: 0,
-        centerTitle: false,
+        centerTitle: true,
         scrolledUnderElevation: 0,
+        titleSpacing: 16,
       ),
       cardTheme: CardThemeData(
         color: AppColors.cardGlass,
