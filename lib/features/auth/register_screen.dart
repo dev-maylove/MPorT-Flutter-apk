@@ -37,16 +37,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _busy = true;
       _error = null;
     });
-    final err = await context.read<AuthService>().register(
-          name: _name.text.trim(),
-          email: _email.text.trim(),
-          password: _pass.text,
-          passwordConfirmation: _confirm.text,
-          phone: _phone.text.trim(),
-        );
+    final auth = context.read<AuthService>();
+    final err = await auth.register(
+      name: _name.text.trim(),
+      email: _email.text.trim(),
+      password: _pass.text,
+      passwordConfirmation: _confirm.text,
+      phone: _phone.text.trim(),
+    );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (err != null) setState(() => _error = err);
+    if (err != null) {
+      setState(() => _error = err);
+      return;
+    }
+    final role = auth.role;
+    final home = role == 'admin'
+        ? '/admin'
+        : role == 'technician'
+            ? '/tech'
+            : '/app';
+    context.go(home);
   }
 
   @override

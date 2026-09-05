@@ -34,15 +34,25 @@ class _LoginScreenState extends State<LoginScreen> {
       _busy = true;
       _error = null;
     });
-    final err = await context.read<AuthService>().login(
-          _loginId.text.trim(),
-          _pass.text,
-        );
+    final auth = context.read<AuthService>();
+    final err = await auth.login(
+      _loginId.text.trim(),
+      _pass.text,
+    );
     if (!mounted) return;
     setState(() => _busy = false);
     if (err != null) {
       setState(() => _error = err);
+      return;
     }
+    // Explicit navigation after successful login (backup for redirect).
+    final role = auth.role;
+    final home = role == 'admin'
+        ? '/admin'
+        : role == 'technician'
+            ? '/tech'
+            : '/app';
+    context.go(home);
   }
 
   Future<void> _forgotPassword() async {

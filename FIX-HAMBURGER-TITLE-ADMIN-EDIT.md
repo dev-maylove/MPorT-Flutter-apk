@@ -72,3 +72,41 @@ Toolchain Flutter tidak tersedia di environment ini. Jalankan `flutter analyze` 
 - Orientasi portrait (utama); landscape opsional
 - Keyboard terbuka di form tambah/edit
 - Drawer + hamburger + AppBar back (modul)
+
+---
+
+# App icon size vs border
+
+## Masalah
+Foreground launcher hampir memenuhi canvas 108dp → terlihat kebesaran dan terpotong masker adaptive icon (lingkaran/squircle).
+
+## Perbaikan
+1. Semua `ic_launcher_foreground.png` (mdpi–xxxhdpi) di-pad: konten dipusatkan di **safe zone ~66%**.
+2. Legacy `ic_launcher.png` diberi margin ~22%.
+3. Splash `mport_splash_icon.png` & `mport_splash_logo.png` dipadatkan ke ~62%.
+4. Adaptive icon XML: `android:inset="8%"` pada foreground.
+5. `splash_icon.xml` & `launch_background.xml`: inset dp agar logo tidak menempel edge.
+
+Setelah rebuild APK, icon di launcher & splash akan lebih proporsional di dalam border.
+
+---
+
+# Auth / Login / Session fix
+
+## Bug
+- Membuka app langsung ke dashboard admin (sesi lama di SharedPreferences).
+- Halaman login "tidak berfungsi": di-redirect paksa karena token usang, atau sukses login tanpa navigasi eksplisit, atau token parsing gagal.
+
+## Akar masalah
+1. `_restore()` set `_loading=false` **sebelum** validasi token → redirect ke home role lama.
+2. `isLoggedIn` hanya cek token (tanpa user) → sesi setengah jadi dianggap login.
+3. Login sukses mengandalkan redirect saja; tidak ada `context.go`.
+4. Parsing token/user dari respons Sanctum/Laravel kurang lengkap.
+
+## Perbaikan
+1. Validasi `/api/auth/me` **selama** loading; 401/403 → clear session → login.
+2. `isLoggedIn` = token + user valid (id > 0).
+3. Login & register: navigasi eksplisit ke home sesuai role setelah sukses.
+4. Token extractor mendukung `token`, `access_token`, `plainTextToken`, nested Sanctum object.
+5. Logout selalu clear local storage.
+
