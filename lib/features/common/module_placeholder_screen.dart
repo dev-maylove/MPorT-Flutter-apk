@@ -170,7 +170,7 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
 
   dynamic get _payload {
     final root = _response?.json;
-    if (root is! Map) return null;
+    if (root == null) return null;
     final data = root['data'];
     if (data is Map) {
       final inner = data['data'];

@@ -116,14 +116,14 @@ class ApiClient {
       return ApiResponse(
         statusCode: 0,
         body:
-            'Tidak bisa terhubung ke server (${effectiveBaseUrl}). '
+            'Tidak bisa terhubung ke server ($effectiveBaseUrl). '
             'Periksa WiFi/URL API. ${e.message}',
       );
     } on TimeoutException {
       return ApiResponse(
         statusCode: 0,
         body:
-            'Timeout menghubungi server (${effectiveBaseUrl}). '
+            'Timeout menghubungi server ($effectiveBaseUrl). '
             'Coba lagi atau periksa koneksi.',
       );
     } on HandshakeException catch (e) {
@@ -135,7 +135,7 @@ class ApiClient {
       return ApiResponse(
         statusCode: 0,
         body:
-            'Koneksi gagal ke ${effectiveBaseUrl}: ${e.message}',
+            'Koneksi gagal ke $effectiveBaseUrl: ${e.message}',
       );
     } catch (e) {
       return ApiResponse(
