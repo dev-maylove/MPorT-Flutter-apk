@@ -144,7 +144,9 @@ class AuthService extends ChangeNotifier {
       data = Map<String, dynamic>.from(data['user'] as Map);
     }
     final user = UserModel.fromJson(data);
-    await _persist(_token!, user);
+    final token = _token;
+    if (token == null || token.isEmpty) return;
+    await _persist(token, user);
   }
 
   Future<void> _persist(String token, UserModel? user) async {

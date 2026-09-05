@@ -35,17 +35,18 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            if (keystorePropertiesFile.exists()) {
+        // Only create release config when key.properties is present (CI / local release).
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
                 val storeFilePath = keystoreProperties["storeFile"] as String
                 storeFile = rootProject.file(storeFilePath)
-                storePassword =
-                    keystoreProperties["storePassword"] as String
-                storeType =
-                    keystoreProperties["storeType"] as String
-
+                storePassword = keystoreProperties["storePassword"] as String
+                val st = keystoreProperties["storeType"] as String?
+                if (!st.isNullOrBlank()) {
+                    storeType = st
+                }
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
@@ -74,11 +75,10 @@ android {
 }
 
 // Built-in Kotlin compiler options (top-level; not inside android {})
+// Matches Flutter 3.47 + AGP 9 migration guide.
 kotlin {
     compilerOptions {
-        jvmTarget.set(
-            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
-        )
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 

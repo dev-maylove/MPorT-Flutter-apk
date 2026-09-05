@@ -54,20 +54,20 @@ class AppRouter {
         }
 
         // Role guards
+        // admin  → /admin* (and may enter /app*)
+        // tech   → /tech*
+        // user   → /app*
         if (loggedIn) {
-          if (loc.startsWith('/admin') && auth.role != 'admin') {
-            return _homeForRole(auth.role);
+          final role = auth.role;
+          if (loc.startsWith('/admin') && role != 'admin') {
+            return _homeForRole(role);
           }
-          if (loc.startsWith('/tech') &&
-              auth.role != 'technician' &&
-              auth.role != 'admin') {
-            return _homeForRole(auth.role);
+          if (loc.startsWith('/tech') && role != 'technician' && role != 'admin') {
+            return _homeForRole(role);
           }
-          if (loc.startsWith('/app') &&
-              auth.role != 'user' &&
-              auth.role != 'admin') {
-            // admin boleh masuk portal user jika perlu; technician tidak
-            if (auth.role == 'technician') return _homeForRole(auth.role);
+          // Technicians must not enter customer portal; other non-user roles bounce home.
+          if (loc.startsWith('/app') && role != 'user' && role != 'admin') {
+            return _homeForRole(role);
           }
         }
         return null;

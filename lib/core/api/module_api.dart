@@ -61,7 +61,13 @@ class ModuleApi {
   Future<ApiResponse> whatsappNumbers({String? search, String? status}) => list('whatsapp-numbers', query: _q(search: search, status: status));
   Future<ApiResponse> whatsappActivity() => list('whatsapp-activity');
   Future<ApiResponse> campaigns({String? search, String? status}) => list('campaigns', query: _q(search: search, status: status));
-  Future<ApiResponse> securityEvents({String? severity}) => list('security-events', query: _q(status: severity));
+  Future<ApiResponse> securityEvents({String? severity}) {
+    final q = <String, String>{};
+    if (severity != null && severity.trim().isNotEmpty) {
+      q['severity'] = severity.trim();
+    }
+    return list('security-events', query: q);
+  }
   Future<ApiResponse> auditLogs() => list('audit-logs');
   Future<ApiResponse> deliveryLogs({String? status}) => list('delivery-logs', query: _q(status: status));
   Future<ApiResponse> subscriptions({String? status}) => list('subscriptions', query: _q(status: status));

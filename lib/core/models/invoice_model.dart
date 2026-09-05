@@ -33,7 +33,7 @@ class InvoiceModel {
   factory InvoiceModel.fromJson(Map<String, dynamic> json) {
     return InvoiceModel(
       id: _asInt(json['id']),
-      invoiceNumber: (json['invoice_number'] ?? json['number'] ?? '#${json['id']}').toString(),
+      invoiceNumber: (json['invoice_number'] ?? json['number'] ?? '#${_asInt(json['id'])}').toString(),
       amount: _asDouble(json['amount']),
       amountFormatted: json['amount_formatted']?.toString(),
       status: (json['status'] ?? 'unpaid').toString().toLowerCase(),

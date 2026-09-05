@@ -1,26 +1,57 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub
 .dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
 .packages
 .pub-cache/
 .pub/
 build/
-.flutter-plugins
-.flutter-plugins-dependencies
-.idea/
-.vscode/
-*.iml
-android/.gradle/
-android/local.properties
+coverage/
+
+# Symbolication / obfuscation
+app.*.symbols
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Android local SDK path (machine-specific)
+/android/local.properties
+
+# Signing secrets — never commit real keystores or passwords
+/android/key.properties
+/android/app/key/*.p12
+/android/app/key/*.jks
+/android/app/key/*.keystore
+*.p12
 *.jks
 *.keystore
-*.apk
-*.aab
-.DS_Store
-android/app/mport-release.jks
 
-# Android signing
-android/key.properties
-android/app/mport-release.p12
+# Generated
+**/GeneratedPluginRegistrant.java
 
-# Local workflow/build backups
-.github/workflows/backup/
-android/app/build.gradle.kts.backup-*
+# IDE
+.vscode/
+*.code-workspace
