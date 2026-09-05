@@ -326,15 +326,24 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 5),
                 Text(
                   '$roleLabel • MPorT Portal',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: accent, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .7),
                 ),
                 const SizedBox(height: 5),
                 Text(
                   'Informasi dan operasional ${title.toLowerCase()}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ],
@@ -639,7 +648,10 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
             ],
           ),
           content: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 430, maxWidth: 420),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.55,
+              maxWidth: 420,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -867,7 +879,10 @@ class _ModulePlaceholderScreenState extends State<ModulePlaceholderScreen> {
           ),
           title: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
           content: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 430, maxWidth: 420),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.55,
+              maxWidth: 420,
+            ),
             child: data.isEmpty
                 ? const Text('Tidak ada item', style: TextStyle(color: AppColors.muted))
                 : ListView.separated(

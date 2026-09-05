@@ -79,10 +79,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           children: [
             Text(
               'Halo, ${user?.name ?? 'Admin'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const Text(
               'Pusat kendali MandalaNet / MPorT',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(color: AppColors.muted),
             ),
             const SizedBox(height: 16),

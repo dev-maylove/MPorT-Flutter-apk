@@ -48,3 +48,27 @@ Tanggal: 2026-09-05
 
 ## Catatan
 Toolchain Flutter tidak tersedia di environment ini. Jalankan `flutter analyze` dan `flutter build apk` di mesin build Anda.
+
+---
+
+# Responsiveness Audit & Fixes (mobile)
+
+## Temuan
+- StatChip (3 kolom Unpaid/Overdue/Paid) memakai Expanded — sudah baik, tapi font/padding tetap besar di layar <360px.
+- Beberapa judul/teks panjang belum punya maxLines + ellipsis → risiko overflow visual.
+- Dialog detail modul memakai maxHeight tetap 430px → di HP pendek (tinggi kecil / keyboard) bisa terlalu tinggi.
+- Drawer sudah clamp lebar (280–390) — OK.
+- Form bottom sheet sudah viewInsets — OK.
+- List + FAB sudah padding bawah ~88 — OK.
+- NavigationBar 4–5 item: Material 3 menangani dengan baik di lebar HP umum.
+
+## Perbaikan responsivitas
+1. **StatChip**: padding & font mengecil otomatis jika lebar < 360; value pakai FittedBox; label maxLines 1 + ellipsis.
+2. **Module hero & dialog**: judul maxLines + ellipsis; dialog maxHeight = 55% tinggi layar (adaptif).
+3. **Admin home greeting**: ellipsis untuk nama panjang.
+
+## Rekomendasi uji
+- Emulator/device: 360×640, 390×844, 412×915
+- Orientasi portrait (utama); landscape opsional
+- Keyboard terbuka di form tambah/edit
+- Drawer + hamburger + AppBar back (modul)
