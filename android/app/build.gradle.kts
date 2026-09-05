@@ -54,10 +54,21 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
         release {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // R8 full mode: smaller APK, removes unused code/resources.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
