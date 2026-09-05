@@ -1,32 +1,23 @@
-# Android toolchain — Flutter 3.47 verified
+# Android toolchain — Flutter 3.47
 
-CI uses **Flutter stable 3.47.2**. Official verified matrix:
+| Component | Version | Notes |
+|-----------|---------|-------|
+| **AGP** | **9.4.0** | Latest stable (Sept 2026) |
+| **Gradle** | **9.6.0** | Minimum required by AGP 9.4 |
+| **Kotlin** | Built-in + pin **2.4.10** | `kotlin_version=2.4.10`; app does not apply KGP |
+| **builtInKotlin** | **true** | |
+| **Java** | **17** | |
+| **Dependency validation** | enabled | No skip flag |
 
-| Component | Version | Why |
-|-----------|---------|-----|
-| **AGP** | **9.1.0** | Verified with Flutter 3.47 + Gradle 9.3.1 |
-| **Gradle** | **9.3.1** | Required minimum for AGP 9.1 |
-| **Kotlin** | **Built-in (AGP)** | App module migrated off KGP |
-| **Java** | **17** | Flutter minimum |
-| **builtInKotlin** | **true** | Removes app-module KGP warning |
-
-## Do not use AGP 9.4.0 yet on this CI
-
-AGP 9.4 requires **Gradle ≥ 9.6.0**. If the wrapper stays at 9.3.1 you get:
-
-```
-Minimum supported Gradle version is 9.6.0. Current version is 9.3.1.
+## Local build
+```bash
+flutter build apk --release \
+  --dart-define=API_BASE_URL=http://192.168.1.102:8000
 ```
 
-After upgrading **both** AGP → 9.4.0 **and** `distributionUrl` → `gradle-9.6.0-*.zip` in the same commit, newer AGP is fine.
-
-## Files that must be committed
-
+## Files
 - `android/settings.gradle.kts`
 - `android/gradle/wrapper/gradle-wrapper.properties`
 - `android/gradle.properties`
 - `android/app/build.gradle.kts`
-
-## Rollback (only if Flutter rejects AGP embedded Kotlin 2.2.10)
-
-See `FIX-BUILT-IN-KOTLIN.md` / Flutter issue #192167.
+- `android/build.gradle.kts`

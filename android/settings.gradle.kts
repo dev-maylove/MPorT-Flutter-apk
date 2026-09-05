@@ -19,9 +19,11 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    // Flutter 3.47 verified: AGP 9.1.0 (compatible with Gradle 9.3.1)
-    id("com.android.application") version "9.1.0" apply false
-    // KGP no longer applied: migrated to AGP Built-in Kotlin.
+    // AGP 9.4.0 (latest stable) requires Gradle ≥ 9.6.0
+    id("com.android.application") version "9.4.0" apply false
+    // Version pin only (apply false). App does NOT apply this plugin.
+    // Built-in Kotlin stays enabled; pin ≥2.2.20 for Flutter checker + BOM.
+    id("org.jetbrains.kotlin.android") version "2.4.10" apply false
 }
 
 include(":app")

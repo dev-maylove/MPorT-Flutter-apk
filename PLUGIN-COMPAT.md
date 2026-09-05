@@ -4,9 +4,9 @@
 
 | Item | Version |
 |------|---------|
-| AGP | 9.1.0 |
-| Gradle | 9.3.1 |
-| Kotlin | Built-in (AGP) |
+| AGP | 9.4.0 |
+| Gradle | 9.6.0 |
+| Kotlin | Built-in + pin 2.4.10 |
 | builtInKotlin | true |
 | Java | 17 |
 
@@ -22,11 +22,3 @@
 | flutter_map | ^7.0.2 | Mostly Dart |
 | cached_network_image | ^3.4.1 | Pulls path_provider / sqflite |
 | google_fonts / flutter_svg / intl / latlong2 | current | OK |
-
-## After clone / CI
-
-```bash
-flutter pub get
-```
-
-If a plugin still applies KGP, upgrade that plugin or report upstream.
