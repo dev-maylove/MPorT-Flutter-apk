@@ -21,8 +21,7 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     // Flutter 3.47 verified: AGP 9.1.0 (compatible with Gradle 9.3.1)
     id("com.android.application") version "9.1.0" apply false
-    // Flutter verified KGP 2.4.0 — use 2.4.10 patch
-    id("org.jetbrains.kotlin.android") version "2.4.10" apply false
+    // KGP no longer applied: migrated to AGP Built-in Kotlin.
 }
 
 include(":app")

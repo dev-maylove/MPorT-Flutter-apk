@@ -1,34 +1,22 @@
-# Fix: Kotlin 2.2.10 < Flutter minimum 2.2.20
+# Kotlin version notes (Built-in Kotlin)
 
-## Error
+## Current state
 
-```
-Failed to apply plugin 'dev.flutter.flutter-gradle-plugin'.
-Error: Your project's Kotlin version (2.2.10) is lower than Flutter's
-minimum supported version of 2.2.20.
-```
+The app module uses **AGP Built-in Kotlin** (`android.builtInKotlin=true`).
+`org.jetbrains.kotlin.android` is **not** applied on `:app`.
 
-## Cause
+## If build fails with Kotlin 2.2.10 < 2.2.20
 
-With `android.builtInKotlin=true`, AGP 9.1 uses its **bundled** Kotlin
-**2.2.10**. Flutter 3.47 requires **≥ 2.2.20**.
+Flutter’s Gradle plugin may still validate the AGP-embedded Kotlin version
+(2.2.10) against Flutter’s minimum (2.2.20). See Flutter
+[#192167](https://github.com/flutter/flutter/issues/192167).
 
-## Fix (compatible with current Flutter)
+Temporary rollback:
 
 1. `android/gradle.properties` → `android.builtInKotlin=false`
 2. `settings.gradle.kts` → restore
-   `id("org.jetbrains.kotlin.android") version "2.2.20" apply false`
+   `id("org.jetbrains.kotlin.android") version "2.4.10" apply false`
 3. `app/build.gradle.kts` → apply `org.jetbrains.kotlin.android` again
 
-You may still see a **warning** about KGP on the app module; that is expected
-until AGP ships Kotlin ≥ 2.2.20 for built-in mode. The build will succeed.
-
-## Later migration
-
-When AGP embeds Kotlin ≥ 2.2.20, switch back to:
-
-```properties
-android.builtInKotlin=true
-```
-
-and remove the `org.jetbrains.kotlin.android` plugin again.
+You may then see the KGP migration **warning** again; the build should succeed
+with an explicit KGP ≥ 2.2.20.
