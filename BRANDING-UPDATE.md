@@ -1,18 +1,18 @@
-# Branding update — logo & app icon
+# Branding update — logo & app icon (cleaned)
 
 Tanggal: 2026-09-05
 
-## Sumber
-Gambar monogram **M** biru neon + motif circuit, frame rounded-square, background transparan
-(`534350.jpg` → diproses ke PNG RGBA).
+## Masalah
+Versi sebelumnya masih menyisakan fill putih/abu di dalam frame rounded-square
+(terlihat di login screen dan icon launcher home).
 
-## Yang diganti
-- `assets/images/mport_logo.png` (512×512, RGBA, luar transparan) — dipakai login & splash Flutter
-- Adaptive icon FG/BG semua densitas (`mipmap-mdpi` … `mipmap-xxxhdpi`)
-- Legacy `ic_launcher.png` semua densitas
-- Native splash: `drawable-nodpi/mport_splash_logo.png`, `mport_splash_icon.png`
-- Background adaptive / launcher: `#06080F` (selaras AppColors.bg)
+## Perbaikan
+- Re-extract dari sumber JPEG dengan mask ketat: hanya stroke biru/cyan + frame navy.
+- Semua area terang / low-chroma dihapus → **transparan penuh**.
+- Adaptive icon: foreground = logo bersih; background = `#06080F`.
+- Legacy `ic_launcher.png` = logo di atas background gelap (tanpa putih).
 
-## Catatan teknis
-Sumber JPEG menampilkan checkerboard (simulasi transparan). Skrip mengekstrak ikon,
-membuang area terang/abu di luar frame, dan menghasilkan PNG transparan sejati.
+## Asset
+- `assets/images/mport_logo.png` (512×512 RGBA)
+- mipmap FG/BG + ic_launcher (mdpi–xxxhdpi)
+- `drawable-nodpi/mport_splash_logo.png`, `mport_splash_icon.png`
